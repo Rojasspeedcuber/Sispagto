@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>Meus Pagamentos</h2>
+<a href="{% url 'adicionar_pagamento' %}" class="btn btn-primary mb-3">Adicionar Pagamento</a>
+<table class="table">
+    <thead>
+        <tr>
+            <th>Credor</th>
+            <th>Contrato</th>
+            <th>Valor</th>
+            <th>Data</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for pagamento in pagamentos %}
+        <tr>
+            <td>{{ pagamento.credor.credor_nome }}</td>
+            <td>{{ pagamento.contrato.contrato_n }}</td>
+            <td>R$ {{ pagamento.valor }}</td>
+            <td>{{ pagamento.data|date:"d/m/Y" }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="4">Nenhum pagamento encontrado.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

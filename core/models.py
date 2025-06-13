@@ -1,4 +1,5 @@
 from django.db import models
+from django.conf import settings
 
 # Modelos mais independentes primeiro
 
@@ -76,6 +77,7 @@ class Pagamento(models.Model):
     # Relacionamentos (ForeignKey)
     # Definidos como opcionais (null=True, blank=True) pois um pagamento pode
     # estar associado a apenas um desses documentos.
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     credor = models.ForeignKey(Credor, on_delete=models.PROTECT, verbose_name="Credor")
     contrato = models.ForeignKey(Contrato, on_delete=models.PROTECT, verbose_name="Contrato")
     fatura = models.ForeignKey(Fatura, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Fatura")

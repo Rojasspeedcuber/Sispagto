@@ -9,7 +9,7 @@ from database import SessionLocal, engine
 from models import Base, Credor, ProdutosServicos, Contrato
 import logic
 import reports
-
+import locale
 # Cria as tabelas no banco de dados na primeira execução
 Base.metadata.create_all(bind=engine)
 
@@ -91,8 +91,8 @@ def page_add_contract():
     with st.form("contract_form", clear_on_submit=True):
         number = st.text_input("Número do Contrato *")
         credor_display = st.selectbox("Credor *", list(credor_options.keys()))
-        start_date = st.date_input("Data de Início da Vigência *", value=date.today())
-        end_date = st.date_input("Data de Término da Vigência *", value=date.today())
+        start_date = st.date_input("Data de Início da Vigência *",format="DD/MM/YYYY", value=date.today())
+        end_date = st.date_input("Data de Término da Vigência *",format="DD/MM/YYYY", value=date.today())
         # ALTERAÇÃO: Input de valor em Reais (float)
         value = st.number_input("Valor Global do Contrato (em R$) *", min_value=0.0, step=0.01, format="%.2f")
         submitted = st.form_submit_button("Cadastrar Contrato")
@@ -136,7 +136,7 @@ def page_add_payment():
 
     with st.form("payment_form", clear_on_submit=True):
         st.subheader("Detalhes do Pagamento")
-        date_pagto = st.date_input("Data do Pagamento *", value=date.today())
+        date_pagto = st.date_input("Data do Pagamento *",format="DD/MM/YYYY", value=date.today())
         period = st.text_input("Período Orçamentário *", placeholder="Ex: 2025-06")
         # ALTERAÇÃO: Input de valor em Reais (float)
         value = st.number_input("Valor do Pagamento (em R$) *", min_value=0.01, step=0.01, format="%.2f")
@@ -150,7 +150,7 @@ def page_add_payment():
         st.subheader("Documento de Cobrança (Opcional)")
         payment_type = st.selectbox("Tipo de Documento", ["Nenhum", "NF", "Recibo", "Fatura", "Boleto"])
         doc_number = st.text_input("Número do Documento (se aplicável)")
-        doc_date = st.date_input("Data do Documento (se aplicável)", value=date.today())
+        doc_date = st.date_input("Data do Documento (se aplicável)",format="DD/MM/YYYY", value=date.today())
 
         submitted = st.form_submit_button("Registrar Pagamento")
 
@@ -166,10 +166,10 @@ def page_add_payment():
                     db = get_session()
                     # ALTERAÇÃO: Converte o valor para centavos (int) antes de enviar para a lógica
                     logic.create_payment(
-                        db, data=date_pagto.strftime('%Y-%m-%d'), periodo=period, valor=int(value * 100),
+                        db, data=date_pagto.strftime('%d-%m-%Y'), periodo=period, valor=int(value * 100),
                         prod_serv_n=product_id, prod_serv_qtd=int(quantity), credor_doc=creditor_doc,
                         contrato_n=selected_contract, tipo_pagamento=payment_type.lower() if payment_type != "Nenhum" else None,
-                        doc_n=doc_number, doc_data=doc_date.strftime('%Y-%m-%d')
+                        doc_n=doc_number, doc_data=doc_date.strftime('%d-%m-%Y')
                     )
                     st.success("Pagamento registrado com sucesso!")
                 except Exception as e:
@@ -192,8 +192,8 @@ def page_generate_report():
     contrato_options.update({c.contrato_n: c.contrato_n for c in contratos})
 
     with st.expander("Filtros do Relatório"):
-        start_date = st.date_input("Data Inicial", value=None)
-        end_date = st.date_input("Data Final", value=None)
+        start_date = st.date_input("Data Inicial",format="DD/MM/YYYY", value=None)
+        end_date = st.date_input("Data Final",format="DD/MM/YYYY", value=None)
         period = st.text_input("Período do Pagamento")
         credor_display = st.selectbox("Credor", list(credor_options.keys()))
         contract_number = st.selectbox("Contrato", list(contrato_options.keys()))

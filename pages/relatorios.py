@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 from io import BytesIO
@@ -16,15 +15,27 @@ def build_report_dataframe():
     """
     required_keys = ['pagamentos_df', 'credores_df', 'produtos_servicos_df']
     for key in required_keys:
-        if key not in st.session_state:
-            return None, f"A tabela '{key.replace('_df', '').capitalize()}' ainda não foi carregada."
+        if key not in st.session_state or st.session_state[key].empty:
+            return None, f"A tabela '{key.replace('_df', '').upper()}' ainda não foi carregada."
 
     # Inicia com a tabela principal de pagamentos
     df_report = st.session_state['pagamentos_df'].copy()
 
     # Converte colunas de data
-    df_report['PAGTO_DATA'] = pd.to_datetime(df_report['PAGTO_DATA'])
+    df_report['PAGTO_DATA'] = pd.to_datetime(df_report['PAGTO_DATA'], dayfirst=True, errors='coerce')
     
+    # ===== INÍCIO DA CORREÇÃO =====
+    # Limpa e converte a coluna de valor para numérico antes de qualquer merge.
+    # Isso resolve o erro de formatação se o CSV tiver valores como "1.250,50".
+    if 'PAGTO_VALOR' in df_report.columns:
+        df_report['PAGTO_VALOR'] = (
+            df_report['PAGTO_VALOR'].astype(str)
+            .str.replace('.', '', regex=False)      # Remove o separador de milhar
+            .str.replace(',', '.', regex=False)      # Substitui a vírgula do decimal por ponto
+            .astype(float)                           # Converte a string limpa para float
+        )
+    # ===== FIM DA CORREÇÃO =====
+
     # Junta com a tabela de credores
     credores_df = st.session_state['credores_df']
     df_report = pd.merge(df_report, credores_df, on='CREDOR_DOC', how='left')
@@ -34,8 +45,11 @@ def build_report_dataframe():
     df_report = pd.merge(df_report, produtos_df, on='PROD_SERV_N', how='left')
     
     # Junta com a tabela de contratos (se existir)
-    if 'contratos_df' in st.session_state:
+    if 'contratos_df' in st.session_state and not st.session_state['contratos_df'].empty:
         contratos_df = st.session_state['contratos_df']
+        # Converte a chave em ambos os dataframes para string para garantir o merge
+        df_report['CONTRATO_N'] = df_report['CONTRATO_N'].astype(str)
+        contratos_df['CONTRATO_N'] = contratos_df['CONTRATO_N'].astype(str)
         df_report = pd.merge(df_report, contratos_df, on='CONTRATO_N', how='left', suffixes=('', '_contrato'))
 
     # Renomeia e seleciona as colunas conforme especificação do PDF
@@ -88,6 +102,9 @@ else:
     filtro_contrato = st.sidebar.text_input("Contrato (busca por parte do número)")
     filtro_tipo = st.sidebar.selectbox("Tipo de pagamento", ["Todos"] + sorted(df_relatorio_base['Tipo de pagamento'].unique()))
     
+    # Remove NaT (Not a Time) para evitar erros nos seletores de data
+    df_relatorio_base.dropna(subset=['Data'], inplace=True)
+    
     min_date = df_relatorio_base['Data'].min().date()
     max_date = df_relatorio_base['Data'].max().date()
 
@@ -107,7 +124,7 @@ else:
     if filtro_credor:
         df_filtrado = df_filtrado[df_filtrado['Credor'].isin(filtro_credor)]
     if filtro_contrato:
-        df_filtrado = df_filtrado[df_filtrado['Contrato'].str.contains(filtro_contrato, case=False, na=False)]
+        df_filtrado = df_filtrado[df_filtrado['Contrato'].astype(str).str.contains(filtro_contrato, case=False, na=False)]
     if filtro_tipo != "Todos":
         df_filtrado = df_filtrado[df_filtrado['Tipo de pagamento'] == filtro_tipo]
 
@@ -117,6 +134,7 @@ else:
     if df_filtrado.empty:
         st.warning("Nenhum pagamento encontrado para os filtros selecionados.")
     else:
+        # A formatação agora funcionará, pois a coluna 'Valor' é numérica.
         st.dataframe(df_filtrado.style.format({"Valor": "R$ {:,.2f}"}), use_container_width=True)
 
         valor_total = df_filtrado['Valor'].sum()

@@ -1,62 +1,86 @@
+# pages/3_⬆️_Upload_de_Tabelas.py
 import streamlit as st
 import pandas as pd
+from io import StringIO
 
 st.set_page_config(layout="wide", page_title="Upload de Tabelas")
 
-st.header("Carga de Dados via CSV")
+st.header("Carga de Dados do Sistema via CSV")
 
-st.write(
-    "Nesta seção, você pode carregar os dados do sistema a partir de arquivos CSV. "
-    "Selecione o tipo de tabela que deseja carregar e escolha o arquivo correspondente."
-)
 st.info(
-    "Os dados carregados ficarão disponíveis na aba 'Relatórios' para visualização e análise."
+    "Faça o upload dos arquivos CSV correspondentes a cada tabela do sistema. "
+    "Os dados carregados serão utilizados para gerar os relatórios na aba ao lado."
 )
 
-# Dicionário para mapear o nome amigável da tabela para a chave no session_state
+# Dicionário para mapear o nome da tabela para a chave no session_state
+# e para o objeto do file_uploader
 TABLE_MAP = {
-    "Pagamentos": "pagamentos_df",
-    "Credores": "credores_df",
-    "Contratos": "contratos_df",
-    "Produtos/Serviços": "produtos_servicos_df",
-    # Adicione outras tabelas conforme necessário (NF, Recibo, etc.)
+    "PAGTO": "pagamentos_df",
+    "CREDOR": "credores_df",
+    "PRODUTOS_SERVICOS": "produtos_servicos_df",
+    "CONTRATO": "contratos_df",
+    "NF": "nf_df",
+    "RECIBO": "recibo_df",
+    "FATURA": "fatura_df",
+    "BOLETO": "boleto_df",
+    "ADITIVOS": "aditivos_df",
+    "LISTA_ITENS": "lista_itens_df",
 }
 
-# --- Formulário de Upload ---
-tipo_tabela = st.selectbox(
-    "Selecione o tipo de tabela para carregar:",
-    options=list(TABLE_MAP.keys())
-)
+# Inicializa o dicionário de uploaders no session state se não existir
+if 'uploaders' not in st.session_state:
+    st.session_state.uploaders = {key: None for key in TABLE_MAP.keys()}
 
-uploaded_file = st.file_uploader(f"Escolha o arquivo CSV de **{tipo_tabela}**", type="csv")
+# --- Layout dos Uploaders em Colunas ---
+col1, col2, col3 = st.columns(3)
+columns = [col1, col2, col3]
 
-if uploaded_file is not None:
-    try:
-        # Lê o arquivo CSV para um DataFrame
-        df = pd.read_csv(uploaded_file)
-        
-        st.write("**Pré-visualização dos Dados Carregados:**")
-        st.dataframe(df.head(), use_container_width=True)
-        
-        if st.button(f"✔️ Carregar Dados de {tipo_tabela}", use_container_width=True):
-            # Obtém a chave correspondente do dicionário
-            session_key = TABLE_MAP[tipo_tabela]
-            
-            # Armazena o DataFrame no estado da sessão
-            st.session_state[session_key] = df
-            
-            st.success(f"Tabela de **{tipo_tabela}** carregada com sucesso! "
-                       "Os dados já estão disponíveis na aba de Relatórios.")
+# Distribui os uploaders pelas colunas
+for i, table_name in enumerate(TABLE_MAP.keys()):
+    with columns[i % 3]:
+        st.session_state.uploaders[table_name] = st.file_uploader(
+            f"Tabela {table_name}",
+            type="csv",
+            key=f"upload_{table_name}"
+        )
 
-    except Exception as e:
-        st.error(f"Ocorreu um erro ao processar o arquivo: {e}")
+# --- Botão para Processar os Arquivos ---
+if st.button("✔️ Processar Arquivos Carregados", use_container_width=True, type="primary"):
+    with st.spinner("Lendo e processando arquivos..."):
+        files_processed = 0
+        for table_name, uploader in st.session_state.uploaders.items():
+            if uploader is not None:
+                try:
+                    # Lê o arquivo CSV. O delimitador ';' é crucial.
+                    df = pd.read_csv(uploader, sep=';')
+                    
+                    # Armazena o DataFrame no estado da sessão com a chave correta
+                    session_key = TABLE_MAP[table_name]
+                    st.session_state[session_key] = df
+                    files_processed += 1
+                except Exception as e:
+                    st.error(f"Erro ao ler o arquivo para a tabela {table_name}: {e}")
+    
+    if files_processed > 0:
+        st.success(f"{files_processed} arquivo(s) processado(s) com sucesso!")
+    else:
+        st.warning("Nenhum arquivo foi selecionado para processamento.")
 
 # --- Status dos Dados Carregados ---
 st.markdown("---")
 st.subheader("Status dos Dados na Sessão Atual")
 
-for nome_amigavel, chave_sessao in TABLE_MAP.items():
-    if chave_sessao in st.session_state:
-        st.success(f"**{nome_amigavel}:** {st.session_state[chave_sessao].shape[0]} linhas carregadas.")
+status_data = []
+for table_name, session_key in TABLE_MAP.items():
+    if session_key in st.session_state:
+        status = "✅ Carregado"
+        rows = st.session_state[session_key].shape[0]
+        cols = st.session_state[session_key].shape[1]
+        info = f"{rows} linhas, {cols} colunas"
     else:
-        st.warning(f"**{nome_amigavel}:** Nenhum dado carregado ainda.")
+        status = "⚠️ Pendente"
+        info = "Nenhum arquivo carregado"
+    status_data.append({"Tabela": table_name, "Status": status, "Info": info})
+
+st.dataframe(pd.DataFrame(status_data), use_container_width=True)
+

@@ -43,7 +43,7 @@ Para executar o projeto em um ambiente local, siga os passos abaixo.
     ```
 5.  **Execute a aplicação** com o comando do Streamlit:
     ```bash
-    streamlit run 🏠_Home.py
+    streamlit run home.py
     ```
 Após a execução, uma aba será aberta no seu navegador com a aplicação rodando.
 

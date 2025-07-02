@@ -1,4 +1,3 @@
-# 🏠_Home.py
 import streamlit as st
 from src.database import inicializar_banco
 

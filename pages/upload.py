@@ -1,6 +1,6 @@
-# pages/3_⬆️_Upload_de_Tabelas.py
 import streamlit as st
 import pandas as pd
+from src.database import get_session, table_exists, engine
 from io import StringIO
 
 st.set_page_config(layout="wide", page_title="Upload de Tabelas")
@@ -9,16 +9,15 @@ st.header("Carga de Dados do Sistema via CSV")
 
 st.info(
     "Faça o upload dos arquivos CSV correspondentes a cada tabela do sistema. "
-    "Os dados carregados serão utilizados para gerar os relatórios na aba ao lado."
+    "Os dados carregados serão salvos no banco de dados e ficarão disponíveis permanentemente."
 )
 
 # Dicionário para mapear o nome da tabela para a chave no session_state
-# e para o objeto do file_uploader
 TABLE_MAP = {
-    "PAGTO": "pagamentos_df",
     "CREDOR": "credores_df",
     "PRODUTOS_SERVICOS": "produtos_servicos_df",
     "CONTRATO": "contratos_df",
+    "PAGTO": "pagamentos_df",
     "NF": "nf_df",
     "RECIBO": "recibo_df",
     "FATURA": "fatura_df",
@@ -27,15 +26,12 @@ TABLE_MAP = {
     "LISTA_ITENS": "lista_itens_df",
 }
 
-# Inicializa o dicionário de uploaders no session state se não existir
 if 'uploaders' not in st.session_state:
     st.session_state.uploaders = {key: None for key in TABLE_MAP.keys()}
 
-# --- Layout dos Uploaders em Colunas ---
 col1, col2, col3 = st.columns(3)
 columns = [col1, col2, col3]
 
-# Distribui os uploaders pelas colunas
 for i, table_name in enumerate(TABLE_MAP.keys()):
     with columns[i % 3]:
         st.session_state.uploaders[table_name] = st.file_uploader(
@@ -44,43 +40,46 @@ for i, table_name in enumerate(TABLE_MAP.keys()):
             key=f"upload_{table_name}"
         )
 
-# --- Botão para Processar os Arquivos ---
-if st.button("✔️ Processar Arquivos Carregados", use_container_width=True, type="primary"):
-    with st.spinner("Lendo e processando arquivos..."):
+if st.button("✔️ Processar e Salvar no Banco de Dados", use_container_width=True, type="primary"):
+    with st.spinner("Lendo, processando e salvando arquivos..."):
         files_processed = 0
         for table_name, uploader in st.session_state.uploaders.items():
             if uploader is not None:
                 try:
-                    # Lê o arquivo CSV. O delimitador ';' é crucial.
                     df = pd.read_csv(uploader, sep=';')
                     
-                    # Armazena o DataFrame no estado da sessão com a chave correta
-                    session_key = TABLE_MAP[table_name]
-                    st.session_state[session_key] = df
+                    # Limpa as aspas simples dos dados
+                    for col in df.select_dtypes(include=['object']):
+                        df[col] = df[col].str.strip("'")
+
+                    df.to_sql(table_name, engine, if_exists='append', index=False)
                     files_processed += 1
+                    st.session_state[TABLE_MAP[table_name]] = df # Mantém no estado da sessão para visualização
                 except Exception as e:
-                    st.error(f"Erro ao ler o arquivo para a tabela {table_name}: {e}")
+                    st.error(f"Erro ao processar a tabela {table_name}: {e}")
     
     if files_processed > 0:
-        st.success(f"{files_processed} arquivo(s) processado(s) com sucesso!")
+        st.success(f"{files_processed} arquivo(s) processado(s) e salvo(s) no banco de dados com sucesso!")
     else:
         st.warning("Nenhum arquivo foi selecionado para processamento.")
 
-# --- Status dos Dados Carregados ---
 st.markdown("---")
-st.subheader("Status dos Dados na Sessão Atual")
+st.subheader("Status dos Dados no Banco de Dados")
 
 status_data = []
-for table_name, session_key in TABLE_MAP.items():
-    if session_key in st.session_state:
-        status = "✅ Carregado"
-        rows = st.session_state[session_key].shape[0]
-        cols = st.session_state[session_key].shape[1]
-        info = f"{rows} linhas, {cols} colunas"
-    else:
-        status = "⚠️ Pendente"
-        info = "Nenhum arquivo carregado"
-    status_data.append({"Tabela": table_name, "Status": status, "Info": info})
+with get_session() as session:
+    for table_name in TABLE_MAP.keys():
+        if table_exists(session, table_name):
+            try:
+                count = pd.read_sql(f"SELECT COUNT(*) FROM {table_name}", engine).iloc[0,0]
+                status = "✅ Carregado"
+                info = f"{count} linhas"
+            except Exception as e:
+                status = "❌ Erro"
+                info = str(e)
+        else:
+            status = "⚠️ Pendente"
+            info = "Tabela não encontrada no BD"
+        status_data.append({"Tabela": table_name, "Status": status, "Info": info})
 
 st.dataframe(pd.DataFrame(status_data), use_container_width=True)
-

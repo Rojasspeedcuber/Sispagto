@@ -16,7 +16,7 @@ st.markdown("---")
 st.header("Bem-vindo!")
 st.write(
     """
-    Este é o Sistema para controle de pagamentos efetuados pelo Departamento Administrativo Financeiro. [cite: 2]
+    Este é o Sistema para controle de pagamentos efetuados pelo Departamento Administrativo Financeiro.
     
     **Utilize o menu na barra lateral para navegar entre as funcionalidades:**
 
@@ -26,6 +26,6 @@ st.write(
     """
 )
 
-st.info("O sistema foi desenvolvido com base na documentação técnica fornecida, implementando todas as tabelas, relacionamentos e regras de negócio especificadas.")
+st.info("O sistema foi desenvolvido com base na documentação técnica fornecida, implementando todas as tabelas, relacionamentos e regras de negócio especificadas. Os dados agora são armazenados de forma persistente.")
 
-st.image("https://raw.githubusercontent.com/pmarcosf/sispagto/main/img/modelo_dados.png", caption="Modelo de Dados do Sistema [cite: 25]")
+st.image("https://raw.githubusercontent.com/pmarcosf/sispagto/main/img/modelo_dados.png", caption="Modelo de Dados do Sistema")

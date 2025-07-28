@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 from src.database import get_session, table_exists, engine
-from sqlalchemy import inspect, text
+from sqlalchemy import inspect
 from io import StringIO
 
 st.set_page_config(layout="wide", page_title="Upload de Tabelas")
@@ -9,8 +9,7 @@ st.set_page_config(layout="wide", page_title="Upload de Tabelas")
 st.header("Carga de Dados do Sistema via CSV")
 
 st.info(
-    "Faça o upload dos arquivos CSV correspondentes a cada tabela do sistema. "
-    "O sistema agora ignora automaticamente linhas duplicadas que já existem no banco de dados."
+    "Faça o upload dos arquivos CSV. O sistema agora ignora automaticamente linhas duplicadas que já existem no banco de dados para evitar erros."
 )
 
 TABLE_MAP = {
@@ -49,42 +48,47 @@ if st.button("✔️ Processar e Salvar no Banco de Dados", use_container_width=
         for table_name, uploader in st.session_state.uploaders.items():
             if uploader is not None:
                 try:
+                    # Lê o CSV
                     df = pd.read_csv(uploader, sep=';', decimal=',')
 
-                    # Limpeza de dados
+                    # ----- Limpeza e Preparação dos Dados -----
                     if 'CONTRATO_LALOR' in df.columns:
                         df.rename(columns={'CONTRATO_LALOR': 'CONTRATO_VALOR'}, inplace=True)
                     for col in df.select_dtypes(include=['object']):
-                        df[col] = df[col].str.strip("'")
+                        df[col] = df[col].astype(str).str.strip("'")
 
                     with get_session() as session:
                         if table_exists(session, table_name):
-                            pk_columns = [key.name for key in inspector.get_primary_keys(table_name)]
-                            
-                            # 1. Remove duplicatas do próprio arquivo CSV
+                            # Obtém as colunas da chave primária da tabela no BD
+                            pk_constraint = inspector.get_pk_constraint(table_name)
+                            pk_columns = pk_constraint['constrained_columns'] if pk_constraint else []
+
+                            # ----- Lógica Anti-Duplicidade -----
+                            # 1. Remove duplicatas dentro do próprio arquivo CSV
                             if pk_columns:
                                 df.drop_duplicates(subset=pk_columns, inplace=True)
-                            else:
-                                df.drop_duplicates(inplace=True)
-
-                            # 2. Remove duplicatas que já existem no banco de dados
-                            if pk_columns:
+                            
+                            # 2. Remove linhas do CSV que já existem no banco de dados
+                            if pk_columns and not df.empty:
                                 existing_pks_df = pd.read_sql_table(table_name, engine, columns=pk_columns)
-                                
-                                # Prepara para o merge anti-join
-                                df_to_insert = df.merge(existing_pks_df, on=pk_columns, how='left', indicator=True)
-                                df_to_insert = df_to_insert[df_to_insert['_merge'] == 'left_only'].drop(columns=['_merge'])
+                                if not existing_pks_df.empty:
+                                    # Merge para identificar linhas que já existem
+                                    merge_indicator = '_merge_indicator'
+                                    df_merged = df.merge(existing_pks_df, on=pk_columns, how='left', indicator=merge_indicator)
+                                    # Mantém apenas as linhas que não estão no BD
+                                    df_to_insert = df_merged[df_merged[merge_indicator] == 'left_only'].drop(columns=[merge_indicator])
+                                else:
+                                    df_to_insert = df
                             else:
-                                # Se não há chave primária, não é possível verificar duplicatas existentes
-                                df_to_insert = df
+                                df_to_insert = df # Se não há PK, insere tudo
 
-                            # Garante que apenas colunas existentes no BD sejam inseridas
-                            db_columns = [c['name'] for c in inspector.get_columns(table_name)]
-                            df_to_insert = df_to_insert[[col for col in df.columns if col in db_columns]]
-
-                            # Salva apenas os dados novos
+                            # ----- Inserção no Banco de Dados -----
                             if not df_to_insert.empty:
-                                df_to_insert.to_sql(table_name, engine, if_exists='append', index=False)
+                                # Garante que apenas colunas existentes no BD sejam inseridas
+                                db_columns = [c['name'] for c in inspector.get_columns(table_name)]
+                                df_to_insert_filtered = df_to_insert[[col for col in df.columns if col in db_columns]]
+                                
+                                df_to_insert_filtered.to_sql(table_name, engine, if_exists='append', index=False)
                             
                             files_processed += 1
                         else:
@@ -94,11 +98,15 @@ if st.button("✔️ Processar e Salvar no Banco de Dados", use_container_width=
                     st.error(f"Erro ao processar a tabela {table_name}: {e}")
                     files_with_errors += 1
     
-    if files_processed > 0:
-        st.success(f"{files_processed} arquivo(s) processado(s) e salvo(s) no banco de dados com sucesso!")
+    # Mensagens de feedback ao usuário
+    if files_processed > 0 and files_with_errors == 0:
+        st.success(f"{files_processed} arquivo(s) foram processados com sucesso! Os dados novos foram salvos.")
+    elif files_processed > 0 and files_with_errors > 0:
+        st.warning(f"{files_processed} arquivo(s) foram processados, mas ocorreram erros em {files_with_errors} deles. Verifique as mensagens de erro acima.")
     elif files_with_errors == 0:
-        st.warning("Nenhum arquivo novo foi selecionado para processamento.")
+        st.info("Nenhum arquivo novo foi selecionado ou os arquivos selecionados não continham dados novos para inserir.")
 
+# Exibição do status final do banco de dados
 st.markdown("---")
 st.subheader("Status dos Dados no Banco de Dados")
 

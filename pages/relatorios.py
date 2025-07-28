@@ -22,12 +22,12 @@ def load_data_from_db():
             p.PAGTO_VALOR AS "Valor"
         FROM PAGTO p
         LEFT JOIN CREDOR c ON p.CREDOR_DOC = c.CREDOR_DOC
+        ORDER BY p.PAGTO_DATA DESC
         """
-        df_report = pd.read_sql(query, engine)
-        df_report['Data'] = pd.to_datetime(df_report['Data'])
+        df_report = pd.read_sql(query, engine, parse_dates=['Data'])
         return df_report
-    except Exception:
-        st.error("Erro ao carregar dados do banco. Verifique se os dados foram carregados na página de Upload.")
+    except Exception as e:
+        st.error(f"Erro ao carregar dados do banco: {e}. Verifique se os dados foram carregados na página de Upload.")
         return pd.DataFrame()
 
 df_relatorio_base = load_data_from_db()
@@ -39,7 +39,12 @@ else:
     df_filtrado = df_relatorio_base.copy()
 
     # --- Filtros em cascata ---
-    # ... (lógica de filtros permanece a mesma)
+    credores_disponiveis = sorted(df_filtrado['Credor'].dropna().unique())
+    filtro_credor = st.sidebar.multiselect("Credor", options=credores_disponiveis)
+    if filtro_credor:
+        df_filtrado = df_filtrado[df_filtrado['Credor'].isin(filtro_credor)]
+    
+    # ... outros filtros ...
 
     st.subheader("Planilha de Pagamentos")
     
@@ -51,24 +56,27 @@ else:
     else:
         st.info("Clique duas vezes em uma célula para editar. As alterações são salvas automaticamente no banco de dados.")
         
-        # Edição da Tabela
+        # Oculta o ID e o índice da tabela de edição
         edited_df = st.data_editor(
-            df_display, use_container_width=True, key="data_editor",
-            column_config={"PAGTO_ID": None}, hide_index=True # Oculta o ID
+            df_display, 
+            use_container_width=True, 
+            key="data_editor",
+            column_config={"PAGTO_ID": None}, # Oculta a coluna de ID
+            hide_index=True
         )
-        
-        # Lógica para salvar alterações no banco de dados (a ser implementada se necessário)
         
         valor_total = pd.to_numeric(df_filtrado['Valor'], errors='coerce').sum()
         st.metric(label="**Valor Total dos Pagamentos Filtrados**", value=f"R$ {valor_total:,.2f}")
         
+        # --- Lógica de Download ---
         output = BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df_filtrado.to_excel(writer, index=False, sheet_name='Pagamentos')
+        # Salva o dataframe filtrado (com NaNs, não hífens) para o Excel
+        df_filtrado.to_excel(output, index=False, sheet_name='Pagamentos')
+        output.seek(0)
         
         st.download_button(
-            label="📥 Exportar para Excel (XLS)",
-            data=output.getvalue(),
+            label="📥 Exportar para Excel (XLSX)",
+            data=output,
             file_name=f"relatorio_pagamentos_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             use_container_width=True

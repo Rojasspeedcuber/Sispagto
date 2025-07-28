@@ -15,9 +15,10 @@ def carregar_dados_bd():
     with get_session() as session:
         data['credores'] = pd.read_sql("SELECT CREDOR_NOME, CREDOR_DOC FROM CREDOR ORDER BY CREDOR_NOME", engine)
         data['contratos'] = pd.read_sql("SELECT * FROM CONTRATO", engine)
-        data['produtos_servicos'] = pd.read_sql("SELECT * FROM PRODUTOS_SERVICOS", engine)
+        data['produtos_servicos'] = pd.read_sql("SELECT * FROM PRODUTOS_SERVICOS ORDER BY PROD_SERV_DESCRICAO", engine)
     return data
 
+# Carrega e prepara os dados
 db_data = carregar_dados_bd()
 credores_df = db_data['credores']
 contratos_df = db_data['contratos']
@@ -30,19 +31,17 @@ tab_pagto, tab_contrato, tab_credor, tab_produto = st.tabs([
 with tab_pagto:
     st.subheader("Cadastro de Pagamentos")
     with st.form("form_pagamento", clear_on_submit=True):
-        data_pag = st.date_input("Data do pagamento (obrigatório)", format="DD/MM/YYYY")
+        data_pag = st.date_input("Data do pagamento (obrigatório)", format="DD/MM/YYYY", value=None)
         periodo = st.text_input("Período do pagamento (ex: jul/2025)", placeholder="jul/2025")
-        valor = st.number_input("Valor do pagamento (obrigatório)", format="%.2f", step=10.0)
-        
+        valor = st.number_input("Valor do pagamento (obrigatório)", format="%.2f", step=10.0, value=0.0)
         map_credor_nome_doc = pd.Series(credores_df.CREDOR_DOC.values, index=credores_df.CREDOR_NOME).to_dict()
-        credor_selecionado = st.selectbox("Credor (obrigatório)", options=list(map_credor_nome_doc.keys()), index=None)
-        
-        tipo_pagamento = st.selectbox("Tipo de pagamento", ["Nota Fiscal", "Recibo", "Fatura", "Boleto", "Outro"], index=None)
+        credor_selecionado = st.selectbox("Credor (obrigatório)", options=list(map_credor_nome_doc.keys()), index=None, placeholder="Selecione o credor")
+        tipo_pagamento = st.selectbox("Tipo de pagamento", ["Nota Fiscal", "Recibo", "Fatura", "Boleto", "Outro"], index=None, placeholder="Selecione o tipo")
         
         submitted = st.form_submit_button("Cadastrar Pagamento")
         if submitted:
-            if not all([data_pag, valor, credor_selecionado]):
-                st.error("Preencha todos os campos obrigatórios!")
+            if not all([data_pag, valor > 0, credor_selecionado]):
+                st.error("Preencha todos os campos obrigatórios (Data, Valor e Credor)!")
             else:
                 try:
                     novo_pagamento = Pagamento(
@@ -53,22 +52,18 @@ with tab_pagto:
                         session.add(novo_pagamento)
                         session.commit()
                     st.success(f"Pagamento para {credor_selecionado} registrado com sucesso!")
-                    st.cache_data.clear() # Limpa o cache para recarregar os dados
+                    st.cache_data.clear()
                 except Exception as e:
                     st.error(f"Erro ao cadastrar pagamento: {e}")
 
 with tab_contrato:
-    st.subheader("Cadastro de Contratos")
-    # ... (formulário de contrato similar, lendo e salvando no BD)
-    st.dataframe(contratos_df.fillna('-'), use_container_width=True)
-
+    st.subheader("Contratos Cadastrados")
+    st.dataframe(contratos_df.fillna('-'), use_container_width=True, hide_index=True)
 
 with tab_credor:
-    st.subheader("Cadastro de Credores")
-    # ... (formulário de credor similar, lendo e salvando no BD)
-    st.dataframe(credores_df.fillna('-'), use_container_width=True)
+    st.subheader("Credores Cadastrados")
+    st.dataframe(credores_df.fillna('-'), use_container_width=True, hide_index=True)
 
 with tab_produto:
-    st.subheader("Cadastro de Produtos/Serviços")
-    # ... (formulário de produto similar, lendo e salvando no BD)
-    st.dataframe(produtos_servicos_df.fillna('-'), use_container_width=True)
+    st.subheader("Produtos e Serviços Cadastrados")
+    st.dataframe(produtos_servicos_df.fillna('-'), use_container_width=True, hide_index=True)

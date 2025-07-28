@@ -2,8 +2,12 @@ import pandas as pd
 from sqlalchemy import create_engine, Column, Integer, String, Date, Numeric, ForeignKey, inspect, PrimaryKeyConstraint
 from sqlalchemy.orm import sessionmaker, declarative_base
 from contextlib import contextmanager
+import os
 
-# Define o caminho do banco de dados na pasta 'data'
+# Garante que o diretório de dados exista
+if not os.path.exists('data'):
+    os.makedirs('data')
+
 DATABASE_URL = "sqlite:///data/sispagto.db"
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -14,7 +18,7 @@ Base = declarative_base()
 class Credor(Base):
     __tablename__ = 'CREDOR'
     CREDOR_DOC = Column(String, primary_key=True)
-    CREDOR_NOME = Column(String, nullable=False)
+    CREDOR_NOME = Column(String, nullable=False, unique=True)
 
 class ProdutoServico(Base):
     __tablename__ = 'PRODUTOS_SERVICOS'
@@ -28,13 +32,13 @@ class ListaItens(Base):
     LISTA_ITENS_N = Column(Integer, nullable=False)
     PROD_SERV_N = Column(Integer, ForeignKey('PRODUTOS_SERVICOS.PROD_SERV_N'), nullable=False)
     LISTA_ITENS_QTD = Column(Integer)
-    
+
 class Contrato(Base):
     __tablename__ = 'CONTRATO'
     CONTRATO_N = Column(String, primary_key=True)
     CREDOR_DOC = Column(String, ForeignKey('CREDOR.CREDOR_DOC'), nullable=False)
-    CONTRATO_DATA_INI = Column(Date, nullable=False)
-    CONTRATO_DATA_FIM = Column(Date, nullable=False)
+    CONTRATO_DATA_INI = Column(Date)
+    CONTRATO_DATA_FIM = Column(Date)
     CONTRATO_VALOR = Column(Numeric, nullable=False)
     LISTA_ITENS_N = Column(Integer)
 
@@ -50,8 +54,8 @@ class Aditivo(Base):
 
 class NF(Base):
     __tablename__ = 'NF'
-    NF_ID = Column(Integer, primary_key=True, autoincrement=True) # Chave primária autoincrementada
-    NF_N = Column(String) # Permite duplicatas
+    NF_ID = Column(Integer, primary_key=True, autoincrement=True)
+    NF_N = Column(String)
     NF_DATA = Column(Date)
     NF_VALOR = Column(Numeric)
 
@@ -83,9 +87,9 @@ class Pagamento(Base):
     PAGTO_TIPO = Column(String)
     CREDOR_DOC = Column(String, ForeignKey('CREDOR.CREDOR_DOC'))
     CONTRATO_N = Column(String, ForeignKey('CONTRATO.CONTRATO_N'))
-    PROD_SERV_N = Column(Integer, ForeignKey('PRODUTOS_SERVICOS.PROD_SERV_N'))
+    PROD_SERV_N = Column(Integer)
     PROD_SERV_QTD = Column(Integer)
-    NF_N = Column(String) # Não é chave estrangeira para permitir flexibilidade
+    NF_N = Column(String)
     RECIBO_N = Column(Integer)
     FATURA_N = Column(Integer)
     BOLETO_N = Column(Integer)
@@ -93,14 +97,11 @@ class Pagamento(Base):
 # --- Funções do Banco de Dados ---
 
 def inicializar_banco():
-    """Cria todas as tabelas definidas no metadado do Base."""
-    # Apaga e recria o banco de dados para aplicar as novas estruturas de chave primária
-    Base.metadata.drop_all(bind=engine)
+    """Cria todas as tabelas no banco de dados se elas ainda não existirem."""
     Base.metadata.create_all(bind=engine)
 
 @contextmanager
 def get_session():
-    """Fornece uma sessão transacional para o banco de dados."""
     session = SessionLocal()
     try:
         yield session
@@ -108,6 +109,5 @@ def get_session():
         session.close()
 
 def table_exists(session, table_name):
-    """Verifica se uma tabela existe no banco de dados."""
     inspector = inspect(session.bind)
     return inspector.has_table(table_name)

@@ -48,7 +48,7 @@ if st.button("✔️ Processar e Salvar no Banco de Dados", use_container_width=
         for table_name, uploader in st.session_state.uploaders.items():
             if uploader is not None:
                 try:
-                    df = pd.read_csv(uploader, sep=';')
+                    df = pd.read_csv(uploader, sep=';', decimal=',')
 
                     # Correção para o erro de digitação em CONTRATO
                     if 'CONTRATO_LALOR' in df.columns:
@@ -59,15 +59,18 @@ if st.button("✔️ Processar e Salvar no Banco de Dados", use_container_width=
                         df[col] = df[col].str.strip("'")
 
                     # Garante que apenas colunas existentes no BD sejam inseridas
-                    if table_exists(get_session(), table_name):
-                        db_columns = [c['name'] for c in inspector.get_columns(table_name)]
-                        df_filtered = df[[col for col in df.columns if col in db_columns]]
-                        
-                        df_filtered.to_sql(table_name, engine, if_exists='append', index=False)
-                        files_processed += 1
-                        st.session_state[TABLE_MAP[table_name]] = df_filtered
-                    else:
-                        st.warning(f"A tabela '{table_name}' não existe no banco de dados. Pulando...")
+                    with get_session() as session:
+                        if table_exists(session, table_name):
+                            db_columns = [c['name'] for c in inspector.get_columns(table_name)]
+                            
+                            # Filtra o DataFrame para incluir apenas as colunas que existem no banco de dados
+                            df_filtered = df[[col for col in df.columns if col in db_columns]]
+                            
+                            df_filtered.to_sql(table_name, engine, if_exists='append', index=False)
+                            files_processed += 1
+                            st.session_state[TABLE_MAP[table_name]] = df_filtered
+                        else:
+                            st.warning(f"A tabela '{table_name}' não existe no banco de dados. Pulando...")
 
                 except Exception as e:
                     st.error(f"Erro ao processar a tabela {table_name}: {e}")

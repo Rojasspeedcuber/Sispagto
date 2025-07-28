@@ -43,7 +43,7 @@ def load_data():
 df_relatorio_base = load_data()
 
 if df_relatorio_base.empty:
-    st.warning("Nenhum dado de pagamento encontrado no banco de dados. Faça o upload na aba 'Upload de Tabelas'.")
+    st.warning("Nenhum dado de pagamento encontrado no banco de dados. Faça o upload na aba 'upload'.")
 else:
     st.sidebar.header("Filtros")
     df_filtrado = df_relatorio_base.copy()

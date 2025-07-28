@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from src.database import get_session, table_exists, engine
+from sqlalchemy import inspect
 from io import StringIO
 
 st.set_page_config(layout="wide", page_title="Upload de Tabelas")
@@ -12,7 +13,6 @@ st.info(
     "Os dados carregados serão salvos no banco de dados e ficarão disponíveis permanentemente."
 )
 
-# Dicionário para mapear o nome da tabela para a chave no session_state
 TABLE_MAP = {
     "CREDOR": "credores_df",
     "PRODUTOS_SERVICOS": "produtos_servicos_df",
@@ -43,18 +43,32 @@ for i, table_name in enumerate(TABLE_MAP.keys()):
 if st.button("✔️ Processar e Salvar no Banco de Dados", use_container_width=True, type="primary"):
     with st.spinner("Lendo, processando e salvando arquivos..."):
         files_processed = 0
+        inspector = inspect(engine)
+
         for table_name, uploader in st.session_state.uploaders.items():
             if uploader is not None:
                 try:
                     df = pd.read_csv(uploader, sep=';')
+
+                    # Correção para o erro de digitação em CONTRATO
+                    if 'CONTRATO_LALOR' in df.columns:
+                        df.rename(columns={'CONTRATO_LALOR': 'CONTRATO_VALOR'}, inplace=True)
                     
-                    # Limpa as aspas simples dos dados
+                    # Remove aspas simples dos dados
                     for col in df.select_dtypes(include=['object']):
                         df[col] = df[col].str.strip("'")
 
-                    df.to_sql(table_name, engine, if_exists='append', index=False)
-                    files_processed += 1
-                    st.session_state[TABLE_MAP[table_name]] = df # Mantém no estado da sessão para visualização
+                    # Garante que apenas colunas existentes no BD sejam inseridas
+                    if table_exists(get_session(), table_name):
+                        db_columns = [c['name'] for c in inspector.get_columns(table_name)]
+                        df_filtered = df[[col for col in df.columns if col in db_columns]]
+                        
+                        df_filtered.to_sql(table_name, engine, if_exists='append', index=False)
+                        files_processed += 1
+                        st.session_state[TABLE_MAP[table_name]] = df_filtered
+                    else:
+                        st.warning(f"A tabela '{table_name}' não existe no banco de dados. Pulando...")
+
                 except Exception as e:
                     st.error(f"Erro ao processar a tabela {table_name}: {e}")
     

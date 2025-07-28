@@ -1,5 +1,5 @@
 import pandas as pd
-from sqlalchemy import create_engine, Column, Integer, String, Date, Numeric, ForeignKey, inspect
+from sqlalchemy import create_engine, Column, Integer, String, Date, Numeric, ForeignKey, inspect, PrimaryKeyConstraint
 from sqlalchemy.orm import sessionmaker, declarative_base
 from contextlib import contextmanager
 
@@ -24,8 +24,9 @@ class ProdutoServico(Base):
 
 class ListaItens(Base):
     __tablename__ = 'LISTA_ITENS'
-    LISTA_ITENS_N = Column(Integer, primary_key=True)
-    PROD_SERV_N = Column(Integer, ForeignKey('PRODUTOS_SERVICOS.PROD_SERV_N'))
+    __table_args__ = (PrimaryKeyConstraint('LISTA_ITENS_N', 'PROD_SERV_N'),)
+    LISTA_ITENS_N = Column(Integer, nullable=False)
+    PROD_SERV_N = Column(Integer, ForeignKey('PRODUTOS_SERVICOS.PROD_SERV_N'), nullable=False)
     LISTA_ITENS_QTD = Column(Integer)
     
 class Contrato(Base):
@@ -35,12 +36,13 @@ class Contrato(Base):
     CONTRATO_DATA_INI = Column(Date, nullable=False)
     CONTRATO_DATA_FIM = Column(Date, nullable=False)
     CONTRATO_VALOR = Column(Numeric, nullable=False)
-    LISTA_ITENS_N = Column(Integer, ForeignKey('LISTA_ITENS.LISTA_ITENS_N'))
+    LISTA_ITENS_N = Column(Integer)
 
 class Aditivo(Base):
     __tablename__ = 'ADITIVOS'
-    ADITIVO_N = Column(Integer, primary_key=True)
-    CONTRATO_N = Column(String, ForeignKey('CONTRATO.CONTRATO_N'))
+    __table_args__ = (PrimaryKeyConstraint('ADITIVO_N', 'CONTRATO_N'),)
+    ADITIVO_N = Column(Integer, nullable=False)
+    CONTRATO_N = Column(String, ForeignKey('CONTRATO.CONTRATO_N'), nullable=False)
     ADITIVO_TIPO = Column(String)
     ADITIVO_DATA_INI = Column(Date)
     ADITIVO_DATA_FIM = Column(Date)
@@ -48,7 +50,8 @@ class Aditivo(Base):
 
 class NF(Base):
     __tablename__ = 'NF'
-    NF_N = Column(String, primary_key=True)
+    NF_ID = Column(Integer, primary_key=True, autoincrement=True) # Chave primária autoincrementada
+    NF_N = Column(String) # Permite duplicatas
     NF_DATA = Column(Date)
     NF_VALOR = Column(Numeric)
 
@@ -82,15 +85,17 @@ class Pagamento(Base):
     CONTRATO_N = Column(String, ForeignKey('CONTRATO.CONTRATO_N'))
     PROD_SERV_N = Column(Integer, ForeignKey('PRODUTOS_SERVICOS.PROD_SERV_N'))
     PROD_SERV_QTD = Column(Integer)
-    NF_N = Column(String, ForeignKey('NF.NF_N'))
-    RECIBO_N = Column(Integer, ForeignKey('RECIBO.RECIBO_N'))
-    FATURA_N = Column(Integer, ForeignKey('FATURA.FATURA_N'))
-    BOLETO_N = Column(Integer, ForeignKey('BOLETO.BOLETO_N'))
+    NF_N = Column(String) # Não é chave estrangeira para permitir flexibilidade
+    RECIBO_N = Column(Integer)
+    FATURA_N = Column(Integer)
+    BOLETO_N = Column(Integer)
 
 # --- Funções do Banco de Dados ---
 
 def inicializar_banco():
     """Cria todas as tabelas definidas no metadado do Base."""
+    # Apaga e recria o banco de dados para aplicar as novas estruturas de chave primária
+    Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
 
 @contextmanager

@@ -62,25 +62,28 @@ if st.button("✔️ Processar e Salvar no Banco de Dados", use_container_width=
                             # Obtém as colunas da chave primária da tabela no BD
                             pk_constraint = inspector.get_pk_constraint(table_name)
                             pk_columns = pk_constraint['constrained_columns'] if pk_constraint else []
+                            
+                            # Verifica quais colunas da PK realmente existem no DataFrame do CSV
+                            pk_columns_in_df = [col for col in pk_columns if col in df.columns]
+
 
                             # ----- Lógica Anti-Duplicidade -----
-                            # 1. Remove duplicatas dentro do próprio arquivo CSV
-                            if pk_columns:
-                                df.drop_duplicates(subset=pk_columns, inplace=True)
+                            if pk_columns_in_df:
+                                # 1. Remove duplicatas dentro do próprio arquivo CSV
+                                df.drop_duplicates(subset=pk_columns_in_df, inplace=True)
                             
-                            # 2. Remove linhas do CSV que já existem no banco de dados
-                            if pk_columns and not df.empty:
-                                existing_pks_df = pd.read_sql_table(table_name, engine, columns=pk_columns)
+                                # 2. Remove linhas do CSV que já existem no banco de dados
+                                existing_pks_df = pd.read_sql_table(table_name, engine, columns=pk_columns_in_df)
                                 if not existing_pks_df.empty:
-                                    # Merge para identificar linhas que já existem
                                     merge_indicator = '_merge_indicator'
-                                    df_merged = df.merge(existing_pks_df, on=pk_columns, how='left', indicator=merge_indicator)
-                                    # Mantém apenas as linhas que não estão no BD
+                                    df_merged = df.merge(existing_pks_df, on=pk_columns_in_df, how='left', indicator=merge_indicator)
                                     df_to_insert = df_merged[df_merged[merge_indicator] == 'left_only'].drop(columns=[merge_indicator])
                                 else:
                                     df_to_insert = df
                             else:
-                                df_to_insert = df # Se não há PK, insere tudo
+                                # Se as colunas da PK não estão no CSV (ex: ID autoincremento), insere todos os dados.
+                                # O BD irá gerar as chaves automaticamente.
+                                df_to_insert = df
 
                             # ----- Inserção no Banco de Dados -----
                             if not df_to_insert.empty:

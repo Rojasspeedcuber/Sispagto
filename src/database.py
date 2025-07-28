@@ -20,6 +20,7 @@ class Contrato(Base):
     CONTRATO_DATA_INI = Column(Date, nullable=False)
     CONTRATO_DATA_FIM = Column(Date, nullable=False)
     CONTRATO_VALOR = Column(Numeric, nullable=False)
+    LISTA_ITENS_N = Column(Integer) # Coluna adicionada
 
 class ProdutoServico(Base):
     __tablename__ = 'PRODUTOS_SERVICOS'
@@ -35,7 +36,8 @@ class Pagamento(Base):
     PAGTO_VALOR = Column(Numeric, nullable=False)
     CREDOR_DOC = Column(String, ForeignKey('CREDOR.CREDOR_DOC'))
     CONTRATO_N = Column(String, ForeignKey('CONTRATO.CONTRATO_N'))
-    PAGTO_TIPO = Column(String) # Simplificado para 'NF', 'Recibo', etc.
+    PAGTO_TIPO = Column(String) 
+    PAGTO_GRUPO = Column(String) # Coluna adicionada
 
 def inicializar_banco():
     Base.metadata.create_all(bind=engine)

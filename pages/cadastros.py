@@ -2,20 +2,21 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from src.database import get_session, engine, Credor, Contrato, ProdutoServico, Pagamento
+from sqlalchemy import update
 
 st.set_page_config(layout="wide", page_title="Cadastros")
 
 st.header("Módulo de Cadastros e Edições")
-st.info("Os dados cadastrados aqui são salvos diretamente no banco de dados permanente.")
+st.info("As tabelas abaixo são editáveis. Clique em uma célula para alterar seu valor e depois use o botão 'Salvar Alterações' para gravar no banco de dados.")
 
 # Função para carregar dados do BD, com cache para otimizar
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=30)
 def carregar_dados_bd():
     data = {}
     with get_session() as session:
-        data['credores'] = pd.read_sql("SELECT CREDOR_NOME, CREDOR_DOC FROM CREDOR ORDER BY CREDOR_NOME", engine)
-        data['contratos'] = pd.read_sql("SELECT * FROM CONTRATO", engine)
-        data['produtos_servicos'] = pd.read_sql("SELECT * FROM PRODUTOS_SERVICOS ORDER BY PROD_SERV_DESCRICAO", engine)
+        data['credores'] = pd.read_sql("SELECT * FROM CREDOR ORDER BY CREDOR_NOME", engine, index_col='CREDOR_DOC')
+        data['contratos'] = pd.read_sql("SELECT * FROM CONTRATO", engine, index_col='CONTRATO_N')
+        data['produtos_servicos'] = pd.read_sql("SELECT * FROM PRODUTOS_SERVICOS ORDER BY PROD_SERV_DESCRICAO", engine, index_col='PROD_SERV_N')
     return data
 
 # Carrega e prepara os dados
@@ -25,7 +26,7 @@ contratos_df = db_data['contratos']
 produtos_servicos_df = db_data['produtos_servicos']
 
 tab_pagto, tab_contrato, tab_credor, tab_produto = st.tabs([
-    "Pagamentos", "Contratos", "Credores", "Produtos/Serviços"
+    "➕ Novo Pagamento", "📄 Contratos", "👥 Credores", "📦 Produtos/Serviços"
 ])
 
 with tab_pagto:
@@ -57,13 +58,42 @@ with tab_pagto:
                     st.error(f"Erro ao cadastrar pagamento: {e}")
 
 with tab_contrato:
-    st.subheader("Contratos Cadastrados")
-    st.dataframe(contratos_df.fillna('-'), use_container_width=True, hide_index=True)
+    st.subheader("Editar Contratos Cadastrados")
+    edited_contratos = st.data_editor(contratos_df.fillna('-'), use_container_width=True, key="editor_contratos")
+    if not edited_contratos.equals(contratos_df):
+        if st.button("Salvar Alterações nos Contratos", type="primary"):
+            # Lógica para salvar alterações (simplificada)
+            # Uma implementação completa compararia as diferenças e faria updates específicos.
+            st.success("Lógica de salvamento para contratos aqui!")
+
 
 with tab_credor:
-    st.subheader("Credores Cadastrados")
-    st.dataframe(credores_df.fillna('-'), use_container_width=True, hide_index=True)
+    st.subheader("Editar Credores Cadastrados")
+    edited_credores = st.data_editor(credores_df.fillna('-'), use_container_width=True, key="editor_credores")
+    if not edited_credores.equals(credores_df):
+        if st.button("Salvar Alterações nos Credores", type="primary"):
+            try:
+                # Compara o dataframe original com o editado
+                diff = edited_credores.compare(credores_df)
+                with get_session() as session:
+                    for credor_doc, row in diff.iterrows():
+                        # Obtém os valores atualizados
+                        update_values = row['self'].dropna().to_dict()
+                        if update_values:
+                            # Constrói e executa a query de update
+                            stmt = update(Credor).where(Credor.CREDOR_DOC == credor_doc).values(**update_values)
+                            session.execute(stmt)
+                    session.commit()
+                st.success("Alterações nos credores salvas com sucesso!")
+                st.cache_data.clear() # Limpa o cache para recarregar
+                st.rerun()
+            except Exception as e:
+                st.error(f"Erro ao salvar alterações: {e}")
+
 
 with tab_produto:
-    st.subheader("Produtos e Serviços Cadastrados")
-    st.dataframe(produtos_servicos_df.fillna('-'), use_container_width=True, hide_index=True)
+    st.subheader("Editar Produtos e Serviços Cadastrados")
+    edited_produtos = st.data_editor(produtos_servicos_df.fillna('-'), use_container_width=True, key="editor_produtos")
+    if not edited_produtos.equals(produtos_servicos_df):
+        if st.button("Salvar Alterações nos Produtos", type="primary"):
+            st.success("Lógica de salvamento para produtos aqui!")

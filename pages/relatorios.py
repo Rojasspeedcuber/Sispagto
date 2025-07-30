@@ -73,7 +73,6 @@ else:
     filtro_contrato = st.sidebar.multiselect("Contrato", options=contratos_disponiveis)
     if filtro_contrato:
         df_filtrado = df_filtrado[df_filtrado['Contrato'].isin(filtro_contrato)]
-    st.subheader("Planilha de Pagamentos")
     
     df_para_editar = df_filtrado.copy()
     st.subheader("Planilha de Pagamentos")

@@ -19,7 +19,7 @@ def load_all_data():
     try:
         # Relatório principal de Pagamentos
         query_pagamentos = """
-        SELECT 
+        SELECT
             p.PAGTO_ID, p.PAGTO_DATA AS "Data", p.PAGTO_PERIODO AS "Período",
             c.CREDOR_NOME AS "Credor", p.CONTRATO_N AS "Contrato",
             p.PAGTO_TIPO AS "Tipo de pagamento", p.PAGTO_VALOR AS "Valor"
@@ -28,7 +28,7 @@ def load_all_data():
         ORDER BY p.PAGTO_DATA DESC
         """
         data['pagamentos'] = pd.read_sql(query_pagamentos, engine, index_col="PAGTO_ID", parse_dates=['Data'])
-        
+
         # Dados adicionais para relatórios secundários
         data['contratos'] = pd.read_sql("SELECT * FROM CONTRATO", engine, index_col='CONTRATO_N')
         data['credores'] = pd.read_sql("SELECT * FROM CREDOR", engine, index_col='CREDOR_DOC')
@@ -37,11 +37,8 @@ def load_all_data():
     except Exception as e:
         st.error(f"Erro ao carregar dados do banco: {e}.")
         # Retorna dataframes vazios em caso de erro
-        data['pagamentos'] = pd.DataFrame()
-        data['contratos'] = pd.DataFrame()
-        data['credores'] = pd.DataFrame()
-        data['produtos'] = pd.DataFrame()
-        
+        data['pagamentos'], data['contratos'], data['credores'], data['produtos'] = pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
+
     return data
 
 # Carrega os dados
@@ -60,20 +57,11 @@ if df_pagamentos.empty:
 else:
     st.sidebar.header("Filtros de Pagamentos")
     df_filtrado = df_pagamentos.copy()
-    
+
     # --- Lógica de Filtros (em cascata) ---
     min_date = df_filtrado['Data'].min().date()
     max_date = df_filtrado['Data'].max().date()
-
-    # CORREÇÃO DO ERRO: 'max_date' alterado para 'max_value'
-    filtro_data = st.sidebar.date_input(
-        "Intervalo de Datas", 
-        value=(min_date, max_date), 
-        min_value=min_date, 
-        max_value=max_date, 
-        format="DD/MM/YYYY"
-    )
-
+    filtro_data = st.sidebar.date_input("Intervalo de Datas", value=(min_date, max_date), min_value=min_date, max_value=max_date, format="DD/MM/YYYY")
     if len(filtro_data) == 2:
         start_date, end_date = pd.to_datetime(filtro_data[0]), pd.to_datetime(filtro_data[1])
         df_filtrado = df_filtrado[df_filtrado['Data'].between(start_date, end_date)]
@@ -82,13 +70,29 @@ else:
     filtro_credor = st.sidebar.multiselect("Credor", options=credores_disponiveis)
     if filtro_credor:
         df_filtrado = df_filtrado[df_filtrado['Credor'].isin(filtro_credor)]
-    
+
+    periodos_disponiveis = sorted(df_filtrado['Período'].dropna().unique())
+    filtro_periodo = st.sidebar.multiselect("Período", options=periodos_disponiveis)
+    if filtro_periodo:
+        df_filtrado = df_filtrado[df_filtrado['Período'].isin(filtro_periodo)]
+
+    tipos_disponiveis = sorted(df_filtrado['Tipo de pagamento'].dropna().unique())
+    filtro_tipo = st.sidebar.multiselect("Tipo de pagamento", options=tipos_disponiveis)
+    if filtro_tipo:
+        df_filtrado = df_filtrado[df_filtrado['Tipo de pagamento'].isin(filtro_tipo)]
+
+    contratos_disponiveis = sorted(df_filtrado['Contrato'].dropna().unique())
+    filtro_contrato = st.sidebar.multiselect("Contrato", options=contratos_disponiveis)
+    if filtro_contrato:
+        df_filtrado = df_filtrado[df_filtrado['Contrato'].isin(filtro_contrato)]
+
+
     # --- Exibição da Tabela de Pagamentos ---
     df_para_exibir = df_filtrado.fillna('-')
-    
+
     st.data_editor(df_para_exibir, use_container_width=True, key="editor_pagamentos")
 
-    # --- Lógica para Salvar Alterações ---
+    # --- Lógica para Salvar Alterações na Tabela de Pagamentos ---
     if st.session_state.get('editor_pagamentos', {}).get('edited_rows'):
         if st.button("Salvar Alterações nos Pagamentos", type="primary"):
             try:

@@ -8,11 +8,10 @@ from sqlalchemy import update
 st.set_page_config(layout="wide", page_title="Relatório de Pagamentos")
 
 st.header("Relatório de Pagamentos")
-st.info("A tabela abaixo é editável. Clique em uma célula para alterar seu valor e use o botão 'Salvar Alterações' para gravar no banco de dados.")
+st.info("A tabela abaixo é editável. Clique em uma célula para alterar seu valor e use o botão 'Salvar Alterações' para gravar as mudanças.")
 
 @st.cache_data(ttl=30)
 def load_data_from_db():
-    """Carrega e prepara os dados de pagamentos do banco de dados."""
     try:
         query = """
         SELECT 
@@ -37,8 +36,6 @@ else:
     st.sidebar.header("Filtros")
     df_filtrado = df_relatorio_original.copy()
     
-    # --- Implementação dos Filtros em Cascata ---
-
     # 1. Filtro de Data
     min_date = df_filtrado['Data'].min().date()
     max_date = df_filtrado['Data'].max().date()
@@ -79,44 +76,44 @@ else:
     st.subheader("Planilha de Pagamentos")
     
     df_para_editar = df_filtrado.copy()
+    st.subheader("Planilha de Pagamentos")
     
     # Tabela de dados editável
-    edited_df = st.data_editor(
-        df_para_editar.fillna('-'),
+    st.data_editor(
+        df_filtrado.fillna('-'),
         use_container_width=True,
-        key="editor_pagamentos",
-        hide_index=False # Mostra o índice (PAGTO_ID) para referência
+        key="editor_pagamentos"
     )
 
     # Lógica para salvar alterações
-    if not edited_df.equals(df_para_editar):
+    if st.session_state.editor_pagamentos['edited_rows']:
         st.warning("Você fez alterações na tabela. Clique no botão abaixo para salvá-las.")
         if st.button("Salvar Alterações nos Pagamentos", type="primary"):
             try:
-                # Compara o dataframe original (filtrado) com o editado
-                diff = edited_df.compare(df_para_editar)
                 with get_session() as session:
-                    for pagto_id, row in diff.iterrows():
-                        # Renomeia colunas do dataframe para corresponder às do banco
-                        update_values = row['self'].dropna().rename(index={
-                            'Data': 'PAGTO_DATA', 'Período': 'PAGTO_PERIODO',
-                            'Contrato': 'CONTRATO_N', 'Tipo de pagamento': 'PAGTO_TIPO',
-                            'Valor': 'PAGTO_VALOR'
-                        }).to_dict()
+                    # Itera sobre as linhas editadas no dicionário do Streamlit
+                    for row_index, changes in st.session_state.editor_pagamentos['edited_rows'].items():
+                        pagto_id = df_filtrado.index[row_index] # Obtém o PAGTO_ID real
                         
-                        # Remove campos não pertencentes à tabela PAGTO
-                        update_values.pop('Credor', None)
-
-                        if update_values:
-                            stmt = update(Pagamento).where(Pagamento.PAGTO_ID == pagto_id).values(**update_values)
+                        # Renomeia as chaves do dicionário para corresponder às colunas do BD
+                        db_changes = {}
+                        for col_name, value in changes.items():
+                            if col_name == 'Data': db_changes['PAGTO_DATA'] = value
+                            elif col_name == 'Período': db_changes['PAGTO_PERIODO'] = value
+                            elif col_name == 'Contrato': db_changes['CONTRATO_N'] = value
+                            elif col_name == 'Tipo de pagamento': db_changes['PAGTO_TIPO'] = value
+                            elif col_name == 'Valor': db_changes['PAGTO_VALOR'] = value
+                        
+                        if db_changes:
+                            stmt = update(Pagamento).where(Pagamento.PAGTO_ID == int(pagto_id)).values(**db_changes)
                             session.execute(stmt)
+                            
                     session.commit()
                 st.success("Alterações nos pagamentos salvas com sucesso!")
                 st.cache_data.clear()
                 st.rerun()
             except Exception as e:
                 st.error(f"Erro ao salvar alterações: {e}")
-
 
     # --- Métrica e Download ---
     valor_total = pd.to_numeric(df_filtrado['Valor'], errors='coerce').sum()

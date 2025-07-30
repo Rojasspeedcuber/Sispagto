@@ -64,7 +64,16 @@ else:
     # --- Lógica de Filtros (em cascata) ---
     min_date = df_filtrado['Data'].min().date()
     max_date = df_filtrado['Data'].max().date()
-    filtro_data = st.sidebar.date_input("Intervalo de Datas", value=(min_date, max_date), min_value=min_date, max_date=max_date, format="DD/MM/YYYY")
+
+    # CORREÇÃO DO ERRO: 'max_date' alterado para 'max_value'
+    filtro_data = st.sidebar.date_input(
+        "Intervalo de Datas", 
+        value=(min_date, max_date), 
+        min_value=min_date, 
+        max_value=max_date, 
+        format="DD/MM/YYYY"
+    )
+
     if len(filtro_data) == 2:
         start_date, end_date = pd.to_datetime(filtro_data[0]), pd.to_datetime(filtro_data[1])
         df_filtrado = df_filtrado[df_filtrado['Data'].between(start_date, end_date)]
@@ -73,58 +82,50 @@ else:
     filtro_credor = st.sidebar.multiselect("Credor", options=credores_disponiveis)
     if filtro_credor:
         df_filtrado = df_filtrado[df_filtrado['Credor'].isin(filtro_credor)]
-    # ... (outros filtros podem ser adicionados aqui da mesma forma)
-
+    
     # --- Exibição da Tabela de Pagamentos ---
-    # APLICAÇÃO DO fillna() CONFORME SOLICITADO
     df_para_exibir = df_filtrado.fillna('-')
     
     st.data_editor(df_para_exibir, use_container_width=True, key="editor_pagamentos")
 
-    # --- Lógica para Salvar Alterações na Tabela de Pagamentos ---
+    # --- Lógica para Salvar Alterações ---
     if st.session_state.get('editor_pagamentos', {}).get('edited_rows'):
         if st.button("Salvar Alterações nos Pagamentos", type="primary"):
             try:
                 with get_session() as session:
-                    # Itera sobre as linhas editadas no dicionário do Streamlit
                     for row_index, changes in st.session_state.editor_pagamentos['edited_rows'].items():
-                        pagto_id = df_filtrado.index[row_index] # Obtém o PAGTO_ID real
-                        
-                        # Renomeia as chaves do dicionário para corresponder às colunas do BD
-                        db_changes = {}
-                        for col_name, value in changes.items():
-                            if col_name == 'Data': db_changes['PAGTO_DATA'] = value
-                            elif col_name == 'Período': db_changes['PAGTO_PERIODO'] = value
-                            elif col_name == 'Contrato': db_changes['CONTRATO_N'] = value
-                            elif col_name == 'Tipo de pagamento': db_changes['PAGTO_TIPO'] = value
-                            elif col_name == 'Valor': db_changes['PAGTO_VALOR'] = value
-                        
-                        if db_changes:
-                            stmt = update(Pagamento).where(Pagamento.PAGTO_ID == int(pagto_id)).values(**db_changes)
-                            session.execute(stmt)
-                            
+                        pagto_id = df_filtrado.index[row_index]
+                        db_changes = {
+                            col.replace(' ', '_').upper(): val 
+                            for col, val in changes.items() if col != 'Credor'
+                        }
+                        if 'DATA' in db_changes:
+                            db_changes['PAGTO_DATA'] = db_changes.pop('DATA')
+                        if 'PERÍODO' in db_changes:
+                            db_changes['PAGTO_PERIODO'] = db_changes.pop('PERÍODO')
+                        if 'TIPO_DE_PAGAMENTO' in db_changes:
+                            db_changes['PAGTO_TIPO'] = db_changes.pop('TIPO_DE_PAGAMENTO')
+
+                        stmt = update(Pagamento).where(Pagamento.PAGTO_ID == int(pagto_id)).values(**db_changes)
+                        session.execute(stmt)
                     session.commit()
-                st.success("Alterações nos pagamentos salvas com sucesso!")
-                st.cache_data.clear()
-                st.rerun()
+                st.success("Alterações salvas com sucesso!")
+                st.cache_data.clear(); st.rerun()
             except Exception as e:
-                st.error(f"Erro ao salvar alterações: {e}")
+                st.error(f"Erro ao salvar: {e}")
 
     # Métrica e Download
     valor_total = pd.to_numeric(df_filtrado['Valor'], errors='coerce').sum()
     st.metric(label="**Valor Total dos Pagamentos Filtrados**", value=f"R$ {valor_total:,.2f}")
     
     output = BytesIO()
-    df_filtrado.to_excel(output, index=False, sheet_name='Pagamentos')
-    output.seek(0)
-        
+    df_filtrado.to_excel(output, index=False)
     st.download_button(
-        label="📥 Exportar para Excel (XLSX)",
-        data=output,
-        file_name=f"relatorio_pagamentos_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        use_container_width=True
+        label="📥 Exportar para Excel",
+        data=output.getvalue(),
+        file_name="relatorio_pagamentos.xlsx"
     )
+
 # --- Relatórios Adicionais ---
 st.divider()
 st.subheader("Outros Relatórios")

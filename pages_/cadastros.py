@@ -52,7 +52,7 @@ tab_pagto, tab_contrato, tab_credor, tab_produto = st.tabs([
 with tab_pagto:
     st.subheader("Cadastro de Novos Pagamentos")
     with st.form("form_pagamento", clear_on_submit=True):
-        data_pag = st.date_input("Data do pagamento (obrigatório)", format="DD/MM/YYYY", value=None)
+        data_pag = st.date_input("Data do pagamento (obrigatório)", format="DD/MM/AAAA", value=None)
         periodo = st.text_input("Período do pagamento (ex: jul/2025)", placeholder="jul/2025")
         valor = st.number_input("Valor do pagamento (obrigatório)", min_value=0.01, format="%.2f")
         
@@ -94,7 +94,7 @@ with tab_contrato:
         
         if not credores_df.empty:
             map_credor_nome_doc = pd.Series(credores_df.index, index=credores_df['CREDOR_NOME']).to_dict()
-            credor_nome_selecionado_contrato = st.selectbox("Credor (obrigatório)", options=list(map_credor_nome_doc.keys()), index=None, key="credor_contrato")
+            credor_nome_selecionado_contrato = st.selectbox("Credor (obrigatório)", options=list(map_credor_nome_doc.keys()), index=None, key="credor_contrato", placeholder="Escolha o Credor")
         else:
             credor_nome_selecionado_contrato = None
 

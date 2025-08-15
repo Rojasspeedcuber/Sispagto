@@ -51,7 +51,7 @@ df_produtos = all_data['produtos']
 # --- Relatório Principal de Pagamentos ---
 st.subheader("Relatório de Pagamentos")
 st.info("Utilize os filtros na barra lateral para refinar os resultados da tabela de pagamentos. A tabela é editável e as alterações podem ser salvas.")
-
+st.info("Clique duas vezes sobre o registro(célula) para editar/modificar")
 if df_pagamentos.empty:
     st.warning("Nenhum dado de pagamento encontrado. Use a página 'Upload de Tabelas' para carregar os dados iniciais.")
 else:
@@ -135,10 +135,14 @@ st.divider()
 st.subheader("Outros Relatórios")
 
 with st.expander("Visualizar Relatório de Contratos"):
+    valor_total_contratos = pd.to_numeric(df_contratos['CONTRATO_VALOR'], errors='coerce').sum()
     st.dataframe(df_contratos.fillna('-'), use_container_width=True)
+    st.metric(label="**Valor Total dos Contratos Filtrados**", value=f"R$ {valor_total_contratos:,.2f}")
 
 with st.expander("Visualizar Relatório de Credores"):
     st.dataframe(df_credores.fillna('-'), use_container_width=True)
 
 with st.expander("Visualizar Relatório de Produtos e Serviços"):
+    valor_total_prodserv = pd.to_numeric(df_produtos['PROD_SERV_VALOR'], errors='coerce').sum()
     st.dataframe(df_produtos.fillna('-'), use_container_width=True)
+    st.metric(label="**Valor Total dos Produtos e Serviços Filtrados**", value=f"R$ {valor_total_prodserv:,.2f}")

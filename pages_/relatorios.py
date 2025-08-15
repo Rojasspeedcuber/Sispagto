@@ -61,7 +61,7 @@ else:
     # --- Lógica de Filtros (em cascata) ---
     min_date = df_filtrado['Data'].min().date()
     max_date = df_filtrado['Data'].max().date()
-    filtro_data = st.sidebar.date_input("Intervalo de Datas", value=(min_date, max_date), min_value=min_date, max_value=max_date, format="DD/MM/AAAA")
+    filtro_data = st.sidebar.date_input("Intervalo de Datas", value=(min_date, max_date), min_value=min_date, max_value=max_date, format="DD/MM/YYYY")
     if len(filtro_data) == 2:
         start_date, end_date = pd.to_datetime(filtro_data[0]), pd.to_datetime(filtro_data[1])
         df_filtrado = df_filtrado[df_filtrado['Data'].between(start_date, end_date)]

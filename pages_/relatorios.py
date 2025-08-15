@@ -67,22 +67,22 @@ else:
         df_filtrado = df_filtrado[df_filtrado['Data'].between(start_date, end_date)]
 
     credores_disponiveis = sorted(df_filtrado['Credor'].dropna().unique())
-    filtro_credor = st.sidebar.multiselect("Credor", options=credores_disponiveis)
+    filtro_credor = st.sidebar.multiselect("Credor", options=credores_disponiveis, placeholder="Escolha uma opção")
     if filtro_credor:
         df_filtrado = df_filtrado[df_filtrado['Credor'].isin(filtro_credor)]
 
     periodos_disponiveis = sorted(df_filtrado['Período'].dropna().unique())
-    filtro_periodo = st.sidebar.multiselect("Período", options=periodos_disponiveis)
+    filtro_periodo = st.sidebar.multiselect("Período", options=periodos_disponiveis, placeholder="Escolha uma opção")
     if filtro_periodo:
         df_filtrado = df_filtrado[df_filtrado['Período'].isin(filtro_periodo)]
 
     tipos_disponiveis = sorted(df_filtrado['Tipo de pagamento'].dropna().unique())
-    filtro_tipo = st.sidebar.multiselect("Tipo de pagamento", options=tipos_disponiveis)
+    filtro_tipo = st.sidebar.multiselect("Tipo de pagamento", options=tipos_disponiveis, placeholder="Escolha uma opção")
     if filtro_tipo:
         df_filtrado = df_filtrado[df_filtrado['Tipo de pagamento'].isin(filtro_tipo)]
 
     contratos_disponiveis = sorted(df_filtrado['Contrato'].dropna().unique())
-    filtro_contrato = st.sidebar.multiselect("Contrato", options=contratos_disponiveis)
+    filtro_contrato = st.sidebar.multiselect("Contrato", options=contratos_disponiveis, placeholder="Escolha uma opção")
     if filtro_contrato:
         df_filtrado = df_filtrado[df_filtrado['Contrato'].isin(filtro_contrato)]
 

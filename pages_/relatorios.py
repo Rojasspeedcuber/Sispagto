@@ -130,6 +130,32 @@ else:
         file_name="relatorio_pagamentos.xlsx"
     )
 
+
+# 1. Garanta que a coluna 'Valor' em df_pagamentos é numérica
+df_pagamentos['Valor'] = pd.to_numeric(df_pagamentos['Valor'], errors='coerce')
+
+# 2. Agrupe por 'Credor' e some os 'Valores'
+valor_total_por_credor = df_pagamentos.groupby('Credor')['Valor'].sum().reset_index()
+
+# 3. Renomeie a coluna da soma para maior clareza
+valor_total_por_credor = valor_total_por_credor.rename(columns={'Valor': 'Valor Total'})
+
+# 4. Junte (merge) o dataframe de credores com os totais calculados
+#    Usamos 'left' merge para manter todos os credores originais, mesmo que não tenham pagamentos.
+df_credores_com_total = pd.merge(
+    df_credores,
+    valor_total_por_credor,
+    left_on='CREDOR_NOME',  # Coluna em df_credores
+    right_on='Credor',     # Coluna em valor_total_por_credor
+    how='left'
+)
+
+# 5. Remova a coluna 'Credor' duplicada que veio do merge
+df_credores_com_total = df_credores_com_total.drop(columns=['Credor'])
+
+# 6. Preencha com 0 os valores nulos (credores sem pagamentos) na nova coluna
+df_credores_com_total['Valor Total'] = df_credores_com_total['Valor Total'].fillna(0)
+
 # --- Relatórios Adicionais ---
 st.divider()
 st.subheader("Outros Relatórios")
@@ -140,7 +166,9 @@ with st.expander("Visualizar Relatório de Contratos"):
     st.metric(label="**Valor Total dos Contratos Filtrados**", value=f"R$ {valor_total_contratos:,.2f}")
 
 with st.expander("Visualizar Relatório de Credores"):
-    st.dataframe(df_credores.fillna('-'), use_container_width=True)
+    valor_total_credores = df_credores_com_total['Valor Total'].sum()
+    st.dataframe(df_credores_com_total.fillna('-'), use_container_width=True)
+    st.metric(label="**Valor Total dos Credores**", value=f"R$ {valor_total_credores:,.2f}")
 
 with st.expander("Visualizar Relatório de Produtos e Serviços"):
     valor_total_prodserv = pd.to_numeric(df_produtos['PROD_SERV_VALOR'], errors='coerce').sum()

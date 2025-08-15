@@ -52,7 +52,7 @@ tab_pagto, tab_contrato, tab_credor, tab_produto = st.tabs([
 with tab_pagto:
     st.subheader("Cadastro de Novos Pagamentos")
     with st.form("form_pagamento", clear_on_submit=True):
-        data_pag = st.date_input("Data do pagamento (obrigatório)", format="DD/MM/AAAA", value=None)
+        data_pag = st.date_input("Data do pagamento (obrigatório)", format="DD/MM/YYYY", value=None)
         periodo = st.text_input("Período do pagamento (ex: jul/2025)", placeholder="jul/2025")
         valor = st.number_input("Valor do pagamento (obrigatório)", min_value=0.01, format="%.2f")
         
@@ -99,8 +99,8 @@ with tab_contrato:
             credor_nome_selecionado_contrato = None
 
         col1, col2 = st.columns(2)
-        data_inicio = col1.date_input("Data de Início", value=None)
-        data_fim = col2.date_input("Data de Fim", value=None)
+        data_inicio = col1.date_input("Data de Início", format="DD/MM/YYYY", value=None)
+        data_fim = col2.date_input("Data de Fim", format="DD/MM/YYYY", value=None)
         valor_global = st.number_input("Valor Global do Contrato", min_value=0.0, format="%.2f")
 
         if st.form_submit_button("Cadastrar Contrato"):

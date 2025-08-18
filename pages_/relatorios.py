@@ -93,30 +93,41 @@ else:
     st.data_editor(df_para_exibir, use_container_width=True, key="editor_pagamentos")
 
     # --- Lógica para Salvar Alterações na Tabela de Pagamentos ---
-    if st.session_state.get('editor_pagamentos', {}).get('edited_rows'):
-        if st.button("Salvar Alterações nos Pagamentos", type="primary"):
-            try:
-                with get_session() as session:
-                    for row_index, changes in st.session_state.editor_pagamentos['edited_rows'].items():
-                        pagto_id = df_filtrado.index[row_index]
-                        db_changes = {
-                            col.replace(' ', '_').upper(): val 
-                            for col, val in changes.items() if col != 'Credor'
-                        }
-                        if 'DATA' in db_changes:
-                            db_changes['PAGTO_DATA'] = db_changes.pop('DATA')
-                        if 'PERÍODO' in db_changes:
-                            db_changes['PAGTO_PERIODO'] = db_changes.pop('PERÍODO')
-                        if 'TIPO_DE_PAGAMENTO' in db_changes:
-                            db_changes['PAGTO_TIPO'] = db_changes.pop('TIPO_DE_PAGAMENTO')
+if st.session_state.get('editor_pagamentos', {}).get('edited_rows'):
+    if st.button("Salvar Alterações nos Pagamentos", type="primary"):
+        try:
+            with get_session() as session:
+                for row_index, changes in st.session_state.editor_pagamentos['edited_rows'].items():
+                    # Pega o ID do pagamento a partir do índice do dataframe filtrado
+                    pagto_id = df_filtrado.index[row_index]
+                    
+                    # Constrói o dicionário de alterações para o banco de dados
+                    db_changes = {}
+                    for col, val in changes.items():
+                        if col == 'Data':
+                            db_changes['PAGTO_DATA'] = val
+                        elif col == 'Período':
+                            db_changes['PAGTO_PERIODO'] = val
+                        elif col == 'Tipo de pagamento':
+                            db_changes['PAGTO_TIPO'] = val
+                        elif col == 'Valor':
+                            db_changes['PAGTO_VALOR'] = val
+                        elif col == 'Contrato':
+                            db_changes['CONTRATO_N'] = val
+                        # Adicione outros mapeamentos de coluna aqui se necessário
 
+                    # Apenas executa a atualização se houverem alterações válidas
+                    if db_changes:
                         stmt = update(Pagamento).where(Pagamento.PAGTO_ID == int(pagto_id)).values(**db_changes)
                         session.execute(stmt)
-                    session.commit()
-                st.success("Alterações salvas com sucesso!")
-                st.cache_data.clear(); st.rerun()
-            except Exception as e:
-                st.error(f"Erro ao salvar: {e}")
+                
+                session.commit()
+            st.success("Alterações salvas com sucesso!")
+            # Limpa o cache para recarregar os dados e atualiza a página
+            st.cache_data.clear()
+            st.rerun()
+        except Exception as e:
+            st.error(f"Erro ao salvar as alterações: {e}")
 
     # Métrica e Download
     valor_total = pd.to_numeric(df_filtrado['Valor'], errors='coerce').sum()

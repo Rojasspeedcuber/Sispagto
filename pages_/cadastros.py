@@ -56,7 +56,6 @@ with tab_pagto:
         periodo = st.text_input("Período do pagamento (ex: jul/2025)", placeholder="jul/2025")
         valor = st.number_input("Valor do pagamento (obrigatório)", min_value=0.01, format="%.2f")
         
-        # Corrige o erro ao criar o mapa de credores
         if not credores_df.empty:
             map_credor_nome_doc = pd.Series(credores_df.index, index=credores_df['CREDOR_NOME']).to_dict()
             credor_nome_selecionado = st.selectbox("Credor (obrigatório)", options=list(map_credor_nome_doc.keys()), index=None, placeholder="Selecione o credor")
@@ -66,7 +65,6 @@ with tab_pagto:
 
         tipo_pagamento = st.selectbox("Tipo de pagamento", ["Nota Fiscal", "Recibo", "Fatura", "Boleto", "Outro"], index=None, placeholder="Selecione o tipo")
         
-        # Adiciona o botão de submit que estava faltando
         submitted = st.form_submit_button("Cadastrar Pagamento")
         if submitted:
             if not all([data_pag, valor, credor_nome_selecionado]):
@@ -123,7 +121,23 @@ with tab_contrato:
     st.divider()
     st.subheader("Editar Contratos Existentes")
     st.data_editor(contratos_df.fillna('-'), use_container_width=True, key="editor_contratos")
-    # ... (lógica de salvamento para edição de contratos)
+    if st.session_state.get('editor_contratos', {}).get('edited_rows'):
+        if st.button("Salvar Alterações nos Contratos", type="primary"):
+            try:
+                with get_session() as session:
+                    for doc_index, changes in st.session_state.editor_contratos['edited_rows'].items():
+                        contrato_n_real = contratos_df.index[doc_index]
+                        stmt = update(Contrato).where(Contrato.CONTRATO_N == contrato_n_real).values(**changes)
+                        session.execute(stmt)
+                    session.commit()
+                st.success("Alterações nos contratos salvas com sucesso!")
+                # --- CORREÇÃO APLICADA AQUI ---
+                del st.session_state.editor_contratos
+                st.cache_data.clear()
+                st.rerun()
+            except Exception as e:
+                st.error(f"Erro ao salvar alterações nos contratos: {e}")
+
 
 # --- Aba de Credores ---
 with tab_credor:
@@ -159,7 +173,10 @@ with tab_credor:
                         session.execute(stmt)
                     session.commit()
                 st.success("Alterações nos credores salvas com sucesso!")
-                st.cache_data.clear(); st.rerun()
+                # --- CORREÇÃO APLICADA AQUI ---
+                del st.session_state.editor_credores
+                st.cache_data.clear()
+                st.rerun()
             except Exception as e:
                 st.error(f"Erro ao salvar alterações nos credores: {e}")
 
@@ -197,6 +214,9 @@ with tab_produto:
                         session.execute(stmt)
                     session.commit()
                 st.success("Alterações nos produtos salvas com sucesso!")
-                st.cache_data.clear(); st.rerun()
+                # --- CORREÇÃO APLICADA AQUI ---
+                del st.session_state.editor_produtos
+                st.cache_data.clear()
+                st.rerun()
             except Exception as e:
                 st.error(f"Erro ao salvar alterações nos produtos: {e}")

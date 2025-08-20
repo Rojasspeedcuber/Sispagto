@@ -19,11 +19,8 @@ def carregar_dados_bd():
     """Carrega todos os dados necessários das tabelas do banco de dados."""
     data = {}
     with get_session() as session:
-        # Carrega credores, usando CREDOR_DOC como índice
         data['credores'] = pd.read_sql("SELECT * FROM CREDOR ORDER BY CREDOR_NOME", engine, index_col='CREDOR_DOC')
-        # Carrega contratos, usando CONTRATO_N como índice
         data['contratos'] = pd.read_sql("SELECT * FROM CONTRATO", engine, index_col='CONTRATO_N')
-        # Carrega produtos, usando PROD_SERV_N como índice
         data['produtos_servicos'] = pd.read_sql("SELECT * FROM PRODUTOS_SERVICOS ORDER BY PROD_SERV_DESCRICAO", engine, index_col='PROD_SERV_N')
     return data
 
@@ -36,11 +33,7 @@ try:
 except Exception as e:
     st.error(f"Falha ao carregar dados do banco de dados: {e}")
     st.warning("Verifique se o banco de dados foi inicializado e se a página de Upload foi utilizada.")
-    # Cria dataframes vazios para evitar mais erros
-    credores_df = pd.DataFrame()
-    contratos_df = pd.DataFrame()
-    produtos_servicos_df = pd.DataFrame()
-
+    credores_df, contratos_df, produtos_servicos_df = pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
 
 # Definição das abas de navegação
 tab_pagto, tab_contrato, tab_credor, tab_produto = st.tabs([
@@ -85,6 +78,7 @@ with tab_pagto:
                     st.error(f"Erro ao cadastrar pagamento: {e}")
 
 # --- Aba de Contratos ---
+# --- Aba de Contratos ---
 with tab_contrato:
     st.subheader("Adicionar Novo Contrato")
     with st.form("form_contrato", clear_on_submit=True):
@@ -100,7 +94,6 @@ with tab_contrato:
         data_inicio = col1.date_input("Data de Início", format="DD/MM/YYYY", value=None)
         data_fim = col2.date_input("Data de Fim", format="DD/MM/YYYY", value=None)
         valor_global = st.number_input("Valor Global do Contrato", min_value=0.0, format="%.2f")
-
 
         if st.form_submit_button("Cadastrar Contrato"):
             if not all([numero_contrato, credor_nome_selecionado_contrato, data_inicio, data_fim, valor_global > 0]):
@@ -122,28 +115,45 @@ with tab_contrato:
     st.divider()
     st.subheader("Editar Contratos Existentes")
 
-    # CÓDIGO A SER ADICIONADO
-    # Cria uma cópia para formatação segura dos dados para exibição
+    # --- CÓDIGO CORRIGIDO ---
     contratos_para_exibir = contratos_df.copy()
-    # Garante que as colunas de data sejam do tipo datetime
-    contratos_para_exibir['CONTRATO_DATA_INI'] = pd.to_datetime(contratos_para_exibir['CONTRATO_DATA_INI'], format='%d/%m/%Y', errors='coerce')
-    contratos_para_exibir['CONTRATO_DATA_FIM'] = pd.to_datetime(contratos_para_exibir['CONTRATO_DATA_FIM'], format='%d/%m/%Y', errors='coerce')
-    # Formata as datas para o padrão DD/MM/YYYY
-    contratos_para_exibir['CONTRATO_DATA_INI'] = contratos_para_exibir['CONTRATO_DATA_INI'].dt.strftime('%d/%m/%Y')
-    contratos_para_exibir['CONTRATO_DATA_FIM'] = contratos_para_exibir['CONTRATO_DATA_FIM'].dt.strftime('%d/%m/%Y')
+    
+    # Formatação das datas
+    contratos_para_exibir['CONTRATO_DATA_INI'] = pd.to_datetime(contratos_para_exibir['CONTRATO_DATA_INI'], errors='coerce').dt.strftime('%d/%m/%Y')
+    contratos_para_exibir['CONTRATO_DATA_FIM'] = pd.to_datetime(contratos_para_exibir['CONTRATO_DATA_FIM'], errors='coerce').dt.strftime('%d/%m/%Y')
 
-    st.data_editor(pd.DataFrame(contratos_para_exibir), use_container_width=True, key="editor_contratos")
+    # CORREÇÃO: Formata a coluna LISTA_ITENS_N para exibir nulos como células vazias
+    # Converte para float (para ter NaN), preenche NaN com '', e converte para string tirando o '.0'
+    if 'LISTA_ITENS_N' in contratos_para_exibir.columns:
+        contratos_para_exibir['LISTA_ITENS_N'] = contratos_para_exibir['LISTA_ITENS_N'].astype(float).fillna('').astype(str).replace(r'\.0$', '', regex=True)
+
+    st.data_editor(contratos_para_exibir, use_container_width=True, key="editor_contratos")
+    
     if st.session_state.get('editor_contratos', {}).get('edited_rows'):
         if st.button("Salvar Alterações nos Contratos", type="primary"):
             try:
                 with get_session() as session:
                     for doc_index, changes in st.session_state.editor_contratos['edited_rows'].items():
                         contrato_n_real = contratos_df.index[doc_index]
+
+                        # CORREÇÃO PARA SALVAR: Converte LISTA_ITENS_N de volta para número ou None
+                        if 'LISTA_ITENS_N' in changes:
+                            new_val = changes['LISTA_ITENS_N']
+                            if isinstance(new_val, str) and new_val.strip() == '':
+                                changes['LISTA_ITENS_N'] = None
+                            elif new_val is not None:
+                                try:
+                                    changes['LISTA_ITENS_N'] = int(float(new_val))
+                                except (ValueError, TypeError):
+                                    st.error(f"O valor '{new_val}' em LISTA_ITENS_N não é um número válido.")
+                                    continue # Pula a atualização deste registro
+                            else:
+                                changes['LISTA_ITENS_N'] = None
+
                         stmt = update(Contrato).where(Contrato.CONTRATO_N == contrato_n_real).values(**changes)
                         session.execute(stmt)
                     session.commit()
                 st.success("Alterações nos contratos salvas com sucesso!")
-                # --- CORREÇÃO APLICADA AQUI ---
                 del st.session_state.editor_contratos
                 st.cache_data.clear()
                 st.rerun()
@@ -174,6 +184,7 @@ with tab_credor:
     
     st.divider()
     st.subheader("Editar Credores Existentes")
+    # Esta linha está OK, pois as colunas de credor são strings.
     st.data_editor(credores_df.fillna('-'), use_container_width=True, key="editor_credores")
     if st.session_state.get('editor_credores', {}).get('edited_rows'):
         if st.button("Salvar Alterações nos Credores", type="primary"):
@@ -185,7 +196,6 @@ with tab_credor:
                         session.execute(stmt)
                     session.commit()
                 st.success("Alterações nos credores salvas com sucesso!")
-                # --- CORREÇÃO APLICADA AQUI ---
                 del st.session_state.editor_credores
                 st.cache_data.clear()
                 st.rerun()
@@ -215,7 +225,9 @@ with tab_produto:
 
     st.divider()
     st.subheader("Editar Produtos e Serviços Existentes")
-    st.data_editor(produtos_servicos_df.fillna('-'), use_container_width=True, key="editor_produtos")
+    # --- CÓDIGO CORRIGIDO PARA ERRO ArrowInvalid ---
+    # Remove o .fillna('-') que causa o erro em colunas numéricas
+    st.data_editor(produtos_servicos_df, use_container_width=True, key="editor_produtos")
     if st.session_state.get('editor_produtos', {}).get('edited_rows'):
         if st.button("Salvar Alterações nos Produtos", type="primary"):
             try:
@@ -226,7 +238,6 @@ with tab_produto:
                         session.execute(stmt)
                     session.commit()
                 st.success("Alterações nos produtos salvas com sucesso!")
-                # --- CORREÇÃO APLICADA AQUI ---
                 del st.session_state.editor_produtos
                 st.cache_data.clear()
                 st.rerun()

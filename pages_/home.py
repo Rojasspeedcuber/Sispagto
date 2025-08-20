@@ -14,6 +14,9 @@ st.set_page_config(
     page_icon="🏠",
     layout="wide"
 )
+col1, col2 = st.columns(2)
+col1.image("imagens\prefeitura-rec.jpeg")
+col2.image("imagens\emprel.jpeg")
 
 st.title("SISTEMA DE CONTROLE DE PAGAMENTOS")
 st.markdown("---")

@@ -132,7 +132,7 @@ with tab_contrato:
     contratos_para_exibir['CONTRATO_DATA_INI'] = contratos_para_exibir['CONTRATO_DATA_INI'].dt.strftime('%d/%m/%Y')
     contratos_para_exibir['CONTRATO_DATA_FIM'] = contratos_para_exibir['CONTRATO_DATA_FIM'].dt.strftime('%d/%m/%Y')
 
-    st.data_editor(contratos_para_exibir.fillna('-'), use_container_width=True, key="editor_contratos")
+    st.data_editor(contratos_para_exibir, use_container_width=True, key="editor_contratos")
     if st.session_state.get('editor_contratos', {}).get('edited_rows'):
         if st.button("Salvar Alterações nos Contratos", type="primary"):
             try:

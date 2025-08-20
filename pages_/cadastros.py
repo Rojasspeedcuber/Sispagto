@@ -126,8 +126,8 @@ with tab_contrato:
     # Cria uma cópia para formatação segura dos dados para exibição
     contratos_para_exibir = contratos_df.copy()
     # Garante que as colunas de data sejam do tipo datetime
-    contratos_para_exibir['CONTRATO_DATA_INI'] = pd.to_datetime(contratos_para_exibir['CONTRATO_DATA_INI'], errors='coerce')
-    contratos_para_exibir['CONTRATO_DATA_FIM'] = pd.to_datetime(contratos_para_exibir['CONTRATO_DATA_FIM'], errors='coerce')
+    contratos_para_exibir['CONTRATO_DATA_INI'] = pd.to_datetime(contratos_para_exibir['CONTRATO_DATA_INI'], format='%d/%m/%Y', errors='coerce')
+    contratos_para_exibir['CONTRATO_DATA_FIM'] = pd.to_datetime(contratos_para_exibir['CONTRATO_DATA_FIM'], format='%d/%m/%Y', errors='coerce')
     # Formata as datas para o padrão DD/MM/YYYY
     contratos_para_exibir['CONTRATO_DATA_INI'] = contratos_para_exibir['CONTRATO_DATA_INI'].dt.strftime('%d/%m/%Y')
     contratos_para_exibir['CONTRATO_DATA_FIM'] = contratos_para_exibir['CONTRATO_DATA_FIM'].dt.strftime('%d/%m/%Y')

@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 from src.database import get_session, table_exists, engine
 from sqlalchemy import inspect
 from io import StringIO
@@ -42,6 +43,27 @@ if st.button("✔️ Processar e Salvar no Banco de Dados", use_container_width=
                 try:
                     df = pd.read_csv(uploader, sep=';', decimal=',')
                     
+                    # --- Lógica para determinar o PAGTO_TIPO automaticamente ---
+                    if table_name == 'PAGTO':
+                        doc_cols = ['NF_N', 'RECIBO_N', 'FATURA_N', 'BOLETO_N']
+                        # Garante que as colunas de documento sejam tratadas como texto
+                        for col in doc_cols:
+                            if col in df.columns:
+                                df[col] = df[col].astype(str).str.strip().str.lower().replace('nan', '')
+
+                        # Define as condições e os tipos de pagamento correspondentes
+                        conditions = [
+                            (df['NF_N'].notna() & (df['NF_N'] != '')),
+                            (df['RECIBO_N'].notna() & (df['RECIBO_N'] != '')),
+                            (df['FATURA_N'].notna() & (df['FATURA_N'] != '')),
+                            (df['BOLETO_N'].notna() & (df['BOLETO_N'] != ''))
+                        ]
+                        choices = ['Nota Fiscal', 'Recibo', 'Fatura', 'Boleto']
+                        
+                        # Cria a coluna PAGTO_TIPO com base nas condições
+                        df['PAGTO_TIPO'] = np.select(conditions, choices, default='Outro')
+
+
                     # --- Limpeza e Preparação ---
                     if 'CONTRATO_LALOR' in df.columns:
                         df.rename(columns={'CONTRATO_LALOR': 'CONTRATO_VALOR'}, inplace=True)
@@ -70,7 +92,7 @@ if st.button("✔️ Processar e Salvar no Banco de Dados", use_container_width=
                             # --- Inserção Final ---
                             if not df_to_insert.empty:
                                 db_columns = [c['name'] for c in inspector.get_columns(table_name)]
-                                df_final = df_to_insert[[col for col in df.columns if col in db_columns]]
+                                df_final = df_to_insert[[col for col in df_to_insert.columns if col in db_columns]]
                                 df_final.to_sql(table_name, engine, if_exists='append', index=False)
                             
                             files_processed += 1

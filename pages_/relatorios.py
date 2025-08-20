@@ -88,7 +88,9 @@ else:
 
 
     # --- Exibição da Tabela de Pagamentos ---
-    df_para_exibir = df_filtrado.fillna('-')
+    # A linha que usava .fillna('-') foi removida daqui para exibir os dados como estão no banco.
+    # Valores nulos aparecerão como células vazias, que é o comportamento desejado.
+    df_para_exibir = df_filtrado
 
     st.data_editor(df_para_exibir, use_container_width=True, key="editor_pagamentos")
 

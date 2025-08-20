@@ -101,6 +101,7 @@ with tab_contrato:
         data_fim = col2.date_input("Data de Fim", format="DD/MM/YYYY", value=None)
         valor_global = st.number_input("Valor Global do Contrato", min_value=0.0, format="%.2f")
 
+
         if st.form_submit_button("Cadastrar Contrato"):
             if not all([numero_contrato, credor_nome_selecionado_contrato, data_inicio, data_fim, valor_global > 0]):
                 st.error("Por favor, preencha todos os campos obrigatórios.")
@@ -120,6 +121,17 @@ with tab_contrato:
     
     st.divider()
     st.subheader("Editar Contratos Existentes")
+
+    # CÓDIGO A SER ADICIONADO
+    # Cria uma cópia para formatação segura dos dados para exibição
+    contratos_para_exibir = contratos_df.copy()
+    # Garante que as colunas de data sejam do tipo datetime
+    contratos_para_exibir['CONTRATO_DATA_INI'] = pd.to_datetime(contratos_para_exibir['CONTRATO_DATA_INI'], errors='coerce')
+    contratos_para_exibir['CONTRATO_DATA_FIM'] = pd.to_datetime(contratos_para_exibir['CONTRATO_DATA_FIM'], errors='coerce')
+    # Formata as datas para o padrão DD/MM/YYYY
+    contratos_para_exibir['CONTRATO_DATA_INI'] = contratos_para_exibir['CONTRATO_DATA_INI'].dt.strftime('%d/%m/%Y')
+    contratos_para_exibir['CONTRATO_DATA_FIM'] = contratos_para_exibir['CONTRATO_DATA_FIM'].dt.strftime('%d/%m/%Y')
+
     st.data_editor(contratos_df.fillna('-'), use_container_width=True, key="editor_contratos")
     if st.session_state.get('editor_contratos', {}).get('edited_rows'):
         if st.button("Salvar Alterações nos Contratos", type="primary"):

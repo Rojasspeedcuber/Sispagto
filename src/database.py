@@ -1,5 +1,5 @@
 import pandas as pd
-from sqlalchemy import create_engine, Column, Integer, String, Date, Numeric, ForeignKey, inspect, PrimaryKeyConstraint
+from sqlalchemy import create_engine, Column, Integer, String, Date, DateTime, Numeric, ForeignKey, inspect, PrimaryKeyConstraint
 from sqlalchemy.orm import sessionmaker, declarative_base
 from contextlib import contextmanager
 import os

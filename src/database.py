@@ -40,7 +40,7 @@ class Contrato(Base):
     CONTRATO_DATA_INI = Column(Date)
     CONTRATO_DATA_FIM = Column(Date)
     CONTRATO_VALOR = Column(Numeric, nullable=False)
-    LISTA_ITENS_N = Column(Integer)
+    LISTA_ITENS_N = Column(Integer, autoincrement=True)
 
 class Aditivo(Base):
     __tablename__ = 'ADITIVOS'

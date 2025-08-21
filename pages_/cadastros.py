@@ -124,9 +124,7 @@ with tab_contrato:
 
     # CORREÇÃO: Formata a coluna LISTA_ITENS_N para exibir nulos como células vazias
     # Converte para float (para ter NaN), preenche NaN com '', e converte para string tirando o '.0'
-    if 'LISTA_ITENS_N' in contratos_para_exibir.columns:
-        contratos_para_exibir['LISTA_ITENS_N'] = contratos_para_exibir['LISTA_ITENS_N'].astype(float).fillna('').astype(str).replace(r'\.0$', '', regex=True)
-
+    contratos_para_exibir = contratos_para_exibir.drop('LISTA_ITENS_N', axis=1)
     st.data_editor(contratos_para_exibir, use_container_width=True, key="editor_contratos")
     
     if st.session_state.get('editor_contratos', {}).get('edited_rows'):
@@ -135,20 +133,6 @@ with tab_contrato:
                 with get_session() as session:
                     for doc_index, changes in st.session_state.editor_contratos['edited_rows'].items():
                         contrato_n_real = contratos_df.index[doc_index]
-
-                        # CORREÇÃO PARA SALVAR: Converte LISTA_ITENS_N de volta para número ou None
-                        if 'LISTA_ITENS_N' in changes:
-                            new_val = changes['LISTA_ITENS_N']
-                            if isinstance(new_val, str) and new_val.strip() == '':
-                                changes['LISTA_ITENS_N'] = None
-                            elif new_val is not None:
-                                try:
-                                    changes['LISTA_ITENS_N'] = int(float(new_val))
-                                except (ValueError, TypeError):
-                                    st.error(f"O valor '{new_val}' em LISTA_ITENS_N não é um número válido.")
-                                    continue # Pula a atualização deste registro
-                            else:
-                                changes['LISTA_ITENS_N'] = None
 
                         stmt = update(Contrato).where(Contrato.CONTRATO_N == contrato_n_real).values(**changes)
                         session.execute(stmt)
